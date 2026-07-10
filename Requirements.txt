@@ -1,0 +1,17 @@
+Our requirement is to build a new software system for QuinTron Breath Test analyzers used in hospitals. The main users will be nurses/lab technicians who enter breath-test data and generate a professional PDF report for the patient and hospital. The physician should review and sign the report.
+
+Main scope for Phase 1:
+
+1. Patient registration: Patient ID/MRN, name, DOB, gender, weight, hospital, department, referring physician.
+2. Test creation: test type, substrate, dose, collection date, analysis date, nurse/technician, pre-test symptoms, pre-test notes.
+3. Supported test types: SIBO Glucose, SIBO Lactulose, Lactose Malabsorption, Fructose Malabsorption. The system should allow custom test types later.
+4. Sample entry table: sample number, time interval, H2 ppm, CH4 ppm, H2 + CH4 auto-calculation, CO2 %, correction factor, symptoms, skipped sample reason.
+5. Chart generation: H2, CH4, and H2 + CH4 over time.
+6. PDF report generation with hospital/Specter branding, patient details, test details, chart, sample table, notes, diagnosis/recommendation box, physician signature, and date.
+7. Report status: Draft, In Progress, Finalized. Once finalized, editing should be locked. Reopening must require a reason and keep an audit trail.
+8. User roles: Admin, Nurse/Lab Technician, Physician, Specter Support.
+9. Security: login, role-based access, audit log, patient data encryption, UAE-compliant hosting/storage.
+10. Export: PDF download, email/share option, and Excel/CSV export for internal analysis.
+
+Important clinical requirement:
+The system should not automatically diagnose the patient. It may show interpretation support flags based on approved thresholds, but final diagnosis/recommendation must remain under physician review.

@@ -1,0 +1,277 @@
+// QuinTron Breath Test — data model
+// -----------------------------------------------------------------------------
+// Design notes:
+//  * Patient PII/PHI (name, DOB, referring physician) is stored in *_enc columns
+//    holding AES-256-GCM ciphertext (see src/lib/crypto.ts). The DB never sees
+//    plaintext PHI. MRN is additionally kept as a blind index hash (mrnHash) so
+//    we can look a patient up without decrypting every row.
+//  * Numeric breath measurements use Decimal for exactness (ppm, %, factors).
+//  * All mutations of clinical data are recorded in AuditLog. Report status
+//    transitions (esp. reopening a finalized report) require a reason.
+// -----------------------------------------------------------------------------
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ----------------------------- Auth & RBAC -----------------------------------
+
+enum Role {
+  ADMIN // full configuration + user management
+  NURSE // create patients/tests, enter samples
+  PHYSICIAN // review, sign, finalize, write diagnosis
+  SPECTER_SUPPORT // vendor support: read + config, no clinical sign-off
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String
+  passwordHash String
+  role         Role     @default(NURSE)
+  // Optional professional identifiers shown on reports / signatures
+  title        String? // e.g. "Dr.", "RN", "Lab Tech"
+  licenseNo    String?
+  isActive     Boolean  @default(true)
+  lastLoginAt  DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relations
+  createdTests    BreathTest[] @relation("TestCreatedBy")
+  technicianTests BreathTest[] @relation("TestTechnician")
+  signedTests     BreathTest[] @relation("TestSignedBy")
+  auditLogs       AuditLog[]
+
+  @@index([role])
+}
+
+// --------------------------- Org structure -----------------------------------
+
+model Hospital {
+  id          String       @id @default(cuid())
+  name        String
+  code        String?      @unique
+  address     String?
+  city        String?
+  country     String       @default("United Arab Emirates")
+  logoUrl     String? // hospital branding on the PDF (Specter branding is app-level)
+  isActive    Boolean      @default(true)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  departments Department[]
+  patients    Patient[]
+
+  @@index([name])
+}
+
+model Department {
+  id         String       @id @default(cuid())
+  name       String
+  hospital   Hospital     @relation(fields: [hospitalId], references: [id], onDelete: Cascade)
+  hospitalId String
+  isActive   Boolean      @default(true)
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+  tests      BreathTest[]
+
+  @@unique([hospitalId, name])
+}
+
+// ------------------------------- Patient -------------------------------------
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+  UNDISCLOSED
+}
+
+model Patient {
+  id  String @id @default(cuid())
+  // MRN: shown to clinicians. mrnHash is a deterministic HMAC used for lookups
+  // so we don't have to decrypt PII to find a patient by MRN.
+  mrn     String
+  mrnHash String @unique
+
+  // Encrypted PII (AES-256-GCM ciphertext, base64). Decrypted only in app layer.
+  nameEnc              String
+  dobEnc               String // date of birth
+  referringPhysicianEnc String?
+
+  gender    Gender
+  weightKg  Decimal? @db.Decimal(6, 2)
+
+  hospital     Hospital     @relation(fields: [hospitalId], references: [id])
+  hospitalId   String
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  tests        BreathTest[]
+
+  @@index([hospitalId])
+}
+
+// ------------------------------ Test types -----------------------------------
+
+// Catalog of test types. Seeded with the four Phase-1 defaults; admins can add
+// custom types. Thresholds power interpretation-support flags ONLY — never an
+// automatic diagnosis.
+model TestType {
+  id            String   @id @default(cuid())
+  key           String   @unique // e.g. "SIBO_GLUCOSE"
+  name          String // e.g. "SIBO — Glucose"
+  defaultSubstrate String?
+  defaultDose      String? // e.g. "75 g glucose in 250 mL water"
+  isSystem      Boolean  @default(false) // true for the 4 built-ins; can't delete
+  isActive      Boolean  @default(true)
+  // Interpretation-support rules (JSON). Evaluated in the app to raise flags,
+  // e.g. { "h2RiseFromBaselinePpm": 20, "ch4AbsolutePpm": 10 }.
+  interpretationRules Json?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  tests         BreathTest[]
+
+  @@index([isActive])
+}
+
+// ------------------------------ Breath test ----------------------------------
+
+enum ReportStatus {
+  DRAFT
+  IN_PROGRESS
+  FINALIZED
+}
+
+model BreathTest {
+  id String @id @default(cuid())
+
+  patient   Patient @relation(fields: [patientId], references: [id])
+  patientId String
+
+  testType   TestType @relation(fields: [testTypeId], references: [id])
+  testTypeId String
+
+  department   Department? @relation(fields: [departmentId], references: [id])
+  departmentId String?
+
+  // Test setup
+  substrate      String?
+  dose           String?
+  collectionDate DateTime?
+  analysisDate   DateTime?
+
+  // Pre-test context
+  preTestSymptoms String?
+  preTestNotes    String?
+
+  // Sample data
+  samples Sample[]
+
+  // Clinical outcome — authored by physician, NOT auto-generated.
+  diagnosis      String? // physician's final diagnosis text
+  recommendation String?
+  interpretationSnapshot Json? // computed support flags captured at finalize time
+
+  // Workflow / status
+  status ReportStatus @default(DRAFT)
+
+  // People
+  createdBy    User   @relation("TestCreatedBy", fields: [createdById], references: [id])
+  createdById  String
+  technician   User?  @relation("TestTechnician", fields: [technicianId], references: [id])
+  technicianId String?
+
+  // Sign-off
+  signedBy     User?     @relation("TestSignedBy", fields: [signedById], references: [id])
+  signedById   String?
+  signedAt     DateTime?
+  signatureName String? // captured display name at signing time
+  finalizedAt  DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  auditLogs AuditLog[]
+
+  @@index([patientId])
+  @@index([status])
+  @@index([testTypeId])
+}
+
+// A single breath sample within a test.
+model Sample {
+  id     String     @id @default(cuid())
+  test   BreathTest @relation(fields: [testId], references: [id], onDelete: Cascade)
+  testId String
+
+  sampleNumber Int
+  timeMinutes  Int // time interval from baseline, in minutes
+
+  h2Ppm  Decimal? @db.Decimal(8, 2)
+  ch4Ppm Decimal? @db.Decimal(8, 2)
+  // h2PlusCh4 is derived (h2Ppm + ch4Ppm) in the app layer, not stored, to avoid
+  // drift. CO2 and correction factor are entered per QuinTron workflow.
+  co2Percent       Decimal? @db.Decimal(5, 2)
+  correctionFactor Decimal? @db.Decimal(6, 3)
+
+  symptoms String?
+
+  skipped      Boolean @default(false)
+  skippedReason String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([testId, sampleNumber])
+  @@index([testId])
+}
+
+// ------------------------------- Audit log -----------------------------------
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  LOGIN
+  LOGOUT
+  STATUS_CHANGE
+  REOPEN
+  FINALIZE
+  SIGN
+  EXPORT
+  VIEW_PHI
+}
+
+model AuditLog {
+  id        String      @id @default(cuid())
+  action    AuditAction
+  entity    String // e.g. "BreathTest", "Patient", "User"
+  entityId  String?
+  // Human-readable summary + optional reason (required for REOPEN).
+  summary   String?
+  reason    String?
+  // Snapshot of relevant before/after values (no plaintext PHI stored here).
+  metadata  Json?
+
+  actor     User?    @relation(fields: [actorId], references: [id])
+  actorId   String?
+  actorRole Role?
+  ipAddress String?
+  userAgent String?
+
+  // Optional direct link to a test for fast per-report audit trails.
+  breathTest   BreathTest? @relation(fields: [breathTestId], references: [id])
+  breathTestId String?
+
+  createdAt DateTime @default(now())
+
+  @@index([entity, entityId])
+  @@index([actorId])
+  @@index([breathTestId])
+  @@index([createdAt])
+}

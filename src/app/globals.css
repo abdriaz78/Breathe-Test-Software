@@ -1,0 +1,108 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: #f8fafc;
+  --foreground: #0f172a;
+}
+
+body {
+  color: var(--foreground);
+  background: var(--background);
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+@layer components {
+  .btn-primary {
+    @apply inline-flex items-center justify-center rounded-md bg-brand px-4 py-2 text-sm font-medium text-white shadow-sm transition-all duration-200 hover:bg-brand-dark hover:shadow-md hover:-translate-y-px active:translate-y-0 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0 disabled:hover:shadow-sm;
+  }
+  .btn-secondary {
+    @apply inline-flex items-center justify-center rounded-md border border-clinical-border bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm transition-all duration-200 hover:border-slate-300 hover:bg-slate-50 hover:-translate-y-px active:translate-y-0 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2;
+  }
+  .input {
+    @apply block w-full rounded-md border border-clinical-border bg-white px-3 py-2 text-sm shadow-sm transition-colors duration-150 focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand;
+  }
+  .label {
+    @apply mb-1 block text-sm font-medium text-slate-700;
+  }
+  .card {
+    @apply rounded-lg border border-clinical-border bg-white p-6 shadow-sm;
+  }
+  /* Cards that link somewhere — gentle lift + brand accent on hover. */
+  .card-interactive {
+    @apply transition-all duration-200 hover:-translate-y-1 hover:border-brand hover:shadow-lg;
+  }
+}
+
+/* Stagger entrance of direct children (e.g. dashboard card grid). Each child
+   animates in slightly after the previous one for a smooth cascade. */
+.stagger-children > * {
+  animation: fade-in-up 0.45s ease-out both;
+}
+.stagger-children > *:nth-child(1) { animation-delay: 0.04s; }
+.stagger-children > *:nth-child(2) { animation-delay: 0.08s; }
+.stagger-children > *:nth-child(3) { animation-delay: 0.12s; }
+.stagger-children > *:nth-child(4) { animation-delay: 0.16s; }
+.stagger-children > *:nth-child(5) { animation-delay: 0.20s; }
+.stagger-children > *:nth-child(6) { animation-delay: 0.24s; }
+.stagger-children > *:nth-child(7) { animation-delay: 0.28s; }
+.stagger-children > *:nth-child(8) { animation-delay: 0.32s; }
+.stagger-children > *:nth-child(n + 9) { animation-delay: 0.36s; }
+
+/* Loading shimmer overlay — add on top of a slate placeholder block. */
+.shimmer {
+  position: relative;
+  overflow: hidden;
+}
+.shimmer::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.55),
+    transparent
+  );
+  animation: shimmer 1.6s infinite;
+}
+
+/* Respect users who prefer reduced motion — disable all decorative motion. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+  .btn-primary:hover,
+  .btn-secondary:hover,
+  .card-interactive:hover {
+    transform: none !important;
+  }
+}
+
+/* Breath-chart palette — validated categorical slots 1–3, with dark steps.
+   Defined here (not inline) so the dark override can win. */
+.chart-root {
+  --series-h2: #2a78d6;
+  --series-ch4: #1baf7a;
+  --series-combined: #eda100;
+  --chart-grid: #e1e0d9;
+  --chart-axis: #c3c2b7;
+  --chart-muted: #898781;
+}
+@media (prefers-color-scheme: dark) {
+  .chart-root {
+    --series-h2: #3987e5;
+    --series-ch4: #199e70;
+    --series-combined: #c98500;
+    --chart-grid: #2c2c2a;
+    --chart-axis: #383835;
+    --chart-muted: #898781;
+  }
+}

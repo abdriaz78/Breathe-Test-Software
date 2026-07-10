@@ -1,0 +1,193 @@
+import { sampleTotal } from "./sample-math";
+
+// -----------------------------------------------------------------------------
+// Pure chart geometry for the breath-test line chart (H2, CH4, H2+CH4 over time).
+// No React, no DOM, no dependencies — consumed by both the on-screen SVG
+// component and the PDF renderer so the plotted geometry is identical.
+//
+// Design (per dataviz method): one y-axis (all series share ppm), categorical
+// slots 1–3 (validated), direct labels on every line (relief for the sub-3:1
+// aqua/yellow contrast), recessive grid.
+// -----------------------------------------------------------------------------
+
+export interface ChartSampleInput {
+  timeMinutes: number;
+  h2Ppm: number | null;
+  ch4Ppm: number | null;
+  skipped: boolean;
+}
+
+export interface Pt {
+  x: number;
+  y: number;
+  value: number;
+  time: number;
+}
+
+export interface SeriesGeometry {
+  key: "h2" | "ch4" | "combined";
+  label: string;
+  colorLight: string;
+  colorDark: string;
+  points: Pt[];
+  last: Pt | null;
+}
+
+// A horizontal reference line. The RED trigger line (baseline + threshold) is the
+// clinically important one; the green baseline line gives it context so the
+// "rise from baseline" is visible (mirrors the standard breath-test report).
+export interface TriggerLine {
+  key: string;
+  value: number; // ppm value the line sits at
+  y: number; // plotted y-coordinate
+  label: string;
+  color: string; // stroke color (red for trigger, green for baseline)
+  emphasized: boolean; // true = the trigger line (thicker, solid)
+}
+
+export interface ChartGeometry {
+  width: number;
+  height: number;
+  plot: { left: number; right: number; top: number; bottom: number };
+  xTicks: Array<{ value: number; x: number }>;
+  yTicks: Array<{ value: number; y: number }>;
+  series: SeriesGeometry[];
+  triggerLines: TriggerLine[];
+  hasData: boolean;
+  yUnit: string;
+  xUnit: string;
+}
+
+const SERIES_META: Array<Pick<SeriesGeometry, "key" | "label" | "colorLight" | "colorDark">> = [
+  { key: "h2", label: "H₂", colorLight: "#2a78d6", colorDark: "#3987e5" },
+  { key: "ch4", label: "CH₄", colorLight: "#1baf7a", colorDark: "#199e70" },
+  { key: "combined", label: "H₂+CH₄", colorLight: "#eda100", colorDark: "#c98500" },
+];
+
+/** Round a max value up to a "nice" axis bound (1/2/2.5/5 × 10ⁿ). */
+function niceMax(max: number): number {
+  if (max <= 0) return 10;
+  const exp = Math.floor(Math.log10(max));
+  const base = Math.pow(10, exp);
+  const frac = max / base;
+  const niceFrac = frac <= 1 ? 1 : frac <= 2 ? 2 : frac <= 2.5 ? 2.5 : frac <= 5 ? 5 : 10;
+  return niceFrac * base;
+}
+
+export interface ChartOptions {
+  width?: number;
+  height?: number;
+  /** H2 rise-from-baseline threshold (ppm). When set (and a baseline exists),
+   *  a red trigger line is drawn at baseline + this value. */
+  h2RiseThreshold?: number | null;
+}
+
+const TRIGGER_COLOR = "#dc2626"; // red — the key line
+const BASELINE_COLOR = "#16a34a"; // green — baseline context
+
+export function buildChartGeometry(
+  samples: ChartSampleInput[],
+  opts: ChartOptions = {}
+): ChartGeometry {
+  const width = opts.width ?? 640;
+  const height = opts.height ?? 320;
+  const plot = { left: 48, right: 64, top: 16, bottom: 40 };
+
+  const active = samples
+    .filter((s) => !s.skipped)
+    .sort((a, b) => a.timeMinutes - b.timeMinutes);
+
+  // Baseline H2 = first (earliest) non-null H2 reading — same definition the
+  // interpretation engine uses. Trigger sits at baseline + threshold.
+  const h2Baseline = active.map((s) => s.h2Ppm).find((v): v is number => v != null) ?? null;
+  const h2Threshold = opts.h2RiseThreshold ?? null;
+  const triggerValue =
+    h2Threshold != null && h2Baseline != null ? h2Baseline + h2Threshold : null;
+
+  const valueFor = (s: ChartSampleInput, key: SeriesGeometry["key"]): number | null => {
+    if (key === "h2") return s.h2Ppm;
+    if (key === "ch4") return s.ch4Ppm;
+    return sampleTotal(s.h2Ppm, s.ch4Ppm);
+  };
+
+  const times = active.map((s) => s.timeMinutes);
+  const minTime = times.length ? Math.min(...times) : 0;
+  const maxTime = times.length ? Math.max(...times) : 60;
+
+  let maxVal = 0;
+  for (const s of active) {
+    for (const meta of SERIES_META) {
+      const v = valueFor(s, meta.key);
+      if (v != null && v > maxVal) maxVal = v;
+    }
+  }
+  // Keep the trigger line on-chart even when readings never reach it.
+  if (triggerValue != null && triggerValue > maxVal) maxVal = triggerValue;
+  const yMax = niceMax(maxVal);
+
+  const innerW = width - plot.left - plot.right;
+  const innerH = height - plot.top - plot.bottom;
+  const spanTime = maxTime - minTime || 1;
+
+  const xOf = (t: number) => plot.left + ((t - minTime) / spanTime) * innerW;
+  const yOf = (v: number) => plot.top + innerH - (v / yMax) * innerH;
+
+  const series: SeriesGeometry[] = SERIES_META.map((meta) => {
+    const points: Pt[] = [];
+    for (const s of active) {
+      const v = valueFor(s, meta.key);
+      if (v == null) continue;
+      points.push({ x: xOf(s.timeMinutes), y: yOf(v), value: v, time: s.timeMinutes });
+    }
+    return { ...meta, points, last: points[points.length - 1] ?? null };
+  });
+
+  // Y ticks: 5 evenly spaced from 0 to yMax.
+  const yTicks = Array.from({ length: 6 }, (_, i) => {
+    const value = (yMax / 5) * i;
+    return { value, y: yOf(value) };
+  });
+
+  // X ticks: one per distinct sample time (deduplicated).
+  const uniqueTimes = Array.from(new Set(times));
+  const xTicks = uniqueTimes.map((t) => ({ value: t, x: xOf(t) }));
+
+  // Reference lines: green baseline + red trigger (baseline + threshold).
+  const triggerLines: TriggerLine[] = [];
+  if (triggerValue != null && h2Baseline != null) {
+    triggerLines.push({
+      key: "baseline",
+      value: h2Baseline,
+      y: yOf(h2Baseline),
+      label: `Baseline ${Math.round(h2Baseline)}`,
+      color: BASELINE_COLOR,
+      emphasized: false,
+    });
+    triggerLines.push({
+      key: "trigger",
+      value: triggerValue,
+      y: yOf(triggerValue),
+      label: `Trigger ${Math.round(triggerValue)}`,
+      color: TRIGGER_COLOR,
+      emphasized: true,
+    });
+  }
+
+  return {
+    width,
+    height,
+    plot,
+    xTicks,
+    yTicks,
+    series,
+    triggerLines,
+    hasData: active.length > 0 && maxVal > 0,
+    yUnit: "ppm",
+    xUnit: "min",
+  };
+}
+
+/** SVG polyline `points` attribute for a series. */
+export function polylinePoints(pts: Pt[]): string {
+  return pts.map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" ");
+}
