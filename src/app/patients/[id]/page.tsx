@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { requirePermission, requestContext } from "@/lib/session";
 import { can } from "@/lib/rbac";
 import { getPatient, ageOf } from "@/lib/patients";
+import { listTests, STATUS_LABEL, STATUS_STYLE } from "@/lib/tests";
 import { AppShell } from "@/components/AppShell";
 
 const GENDER_LABEL: Record<string, string> = {
@@ -12,7 +13,8 @@ const GENDER_LABEL: Record<string, string> = {
   UNDISCLOSED: "Undisclosed",
 };
 
-function formatDate(iso: string): string {
+function formatDate(iso: string | Date | null): string {
+  if (!iso) return "—";
   const d = new Date(iso);
   return Number.isNaN(d.getTime())
     ? "—"
@@ -29,6 +31,9 @@ export default async function PatientDetailPage({
   const ctx = await requestContext();
   const patient = await getPatient(user, id, ctx);
   if (!patient) notFound();
+
+  const showReports = can(user.role, "test:read");
+  const reports = showReports ? await listTests(user, { patientId: id }) : [];
 
   const age = ageOf(patient.dob);
 
@@ -76,6 +81,56 @@ export default async function PatientDetailPage({
           ))}
         </dl>
       </div>
+
+      {showReports && (
+        <section className="mt-6 max-w-3xl">
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-400">
+              Reports
+            </h2>
+            <span className="text-sm text-slate-500">{reports.length} report(s)</span>
+          </div>
+          <div className="overflow-hidden rounded-lg border border-clinical-border bg-white">
+            <table className="min-w-full divide-y divide-clinical-border text-sm">
+              <thead className="bg-slate-50 text-left text-xs font-medium uppercase tracking-wide text-slate-500">
+                <tr>
+                  <th className="px-4 py-3">Test type</th>
+                  <th className="px-4 py-3">Collection</th>
+                  <th className="px-4 py-3">Created</th>
+                  <th className="px-4 py-3">Status</th>
+                  <th className="px-4 py-3" />
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-clinical-border">
+                {reports.length === 0 && (
+                  <tr>
+                    <td colSpan={5} className="px-4 py-8 text-center text-slate-400">
+                      No reports for this patient yet.
+                    </td>
+                  </tr>
+                )}
+                {reports.map((t) => (
+                  <tr key={t.id} className="transition-colors duration-150 hover:bg-brand/5">
+                    <td className="px-4 py-3 font-medium text-slate-900">{t.testTypeName}</td>
+                    <td className="px-4 py-3 text-slate-600">{formatDate(t.collectionDate)}</td>
+                    <td className="px-4 py-3 text-slate-600">{formatDate(t.createdAt)}</td>
+                    <td className="px-4 py-3">
+                      <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_STYLE[t.status]}`}>
+                        {STATUS_LABEL[t.status]}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <Link href={`/tests/${t.id}`} className="text-brand hover:underline">
+                        Open
+                      </Link>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
 
       <p className="mt-4 max-w-3xl text-xs text-slate-400">
         Accessing this record was logged to the audit trail.

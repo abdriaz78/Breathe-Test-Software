@@ -21,6 +21,7 @@ export default async function EditSamplesPage({
   const initialRows: EditableRow[] = test.samples.map((s) => ({
     sampleNumber: s.sampleNumber,
     timeMinutes: s.timeMinutes,
+    clockTime: s.clockTime ?? "",
     h2Ppm: s.h2Ppm != null ? Number(s.h2Ppm) : "",
     ch4Ppm: s.ch4Ppm != null ? Number(s.ch4Ppm) : "",
     co2Percent: s.co2Percent != null ? Number(s.co2Percent) : "",
@@ -46,7 +47,14 @@ export default async function EditSamplesPage({
         {test.testType.name}. H₂+CH₄ is calculated automatically.
       </p>
 
-      <SampleTable testId={id} initialRows={initialRows} />
+      <SampleTable
+        testId={id}
+        initialRows={initialRows}
+        h2RiseThreshold={
+          (test.testType.interpretationRules as { h2RiseFromBaselinePpm?: number } | null)
+            ?.h2RiseFromBaselinePpm ?? null
+        }
+      />
     </AppShell>
   );
 }

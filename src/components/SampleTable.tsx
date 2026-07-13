@@ -1,13 +1,20 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useState } from "react";
 import Link from "next/link";
 import { saveSamplesAction, type SamplesFormState } from "@/app/tests/[id]/samples/actions";
 import { sampleTotal } from "@/lib/sample-math";
+import { formatClock12, parseClockInput } from "@/lib/time-format";
+import { BreathChart } from "@/components/BreathChart";
+import { CH4_TRIGGER_PPM } from "@/lib/chart-geometry";
+
+// Number of blank rows shown by default when entering a fresh test.
+const DEFAULT_ROWS = 6;
 
 export interface EditableRow {
   sampleNumber: number;
   timeMinutes: number | "";
+  clockTime: string; // standardized 24h "HH:mm", or "" when unset
   h2Ppm: number | "";
   ch4Ppm: number | "";
   co2Percent: number | "";
@@ -17,10 +24,13 @@ export interface EditableRow {
   skippedReason: string;
 }
 
-function emptyRow(sampleNumber: number, timeMinutes: number | ""): EditableRow {
+// Interval is left blank by default so the technician chooses their own cadence
+// (e.g. 20 or 30 min) rather than inheriting a suggested value.
+function emptyRow(sampleNumber: number): EditableRow {
   return {
     sampleNumber,
-    timeMinutes,
+    timeMinutes: "",
+    clockTime: "",
     h2Ppm: "",
     ch4Ppm: "",
     co2Percent: "",
@@ -33,16 +43,42 @@ function emptyRow(sampleNumber: number, timeMinutes: number | ""): EditableRow {
 
 const numOrNull = (v: number | "") => (v === "" ? null : Number(v));
 
+// A row the user never touched — skip it on save so blank default rows don't
+// persist as empty samples.
+function isBlankRow(r: EditableRow): boolean {
+  return (
+    r.timeMinutes === "" &&
+    r.clockTime === "" &&
+    r.h2Ppm === "" &&
+    r.ch4Ppm === "" &&
+    r.co2Percent === "" &&
+    r.correctionFactor === "" &&
+    r.symptoms.trim() === "" &&
+    !r.skipped
+  );
+}
+
+// Start with the saved rows, padded up to DEFAULT_ROWS blank rows for entry.
+function buildInitialRows(saved: EditableRow[]): EditableRow[] {
+  const rows = [...saved];
+  let next = (rows[rows.length - 1]?.sampleNumber ?? rows.length) + 1;
+  while (rows.length < DEFAULT_ROWS) {
+    rows.push(emptyRow(next++));
+  }
+  return rows;
+}
+
 export function SampleTable({
   testId,
   initialRows,
+  h2RiseThreshold,
 }: {
   testId: string;
   initialRows: EditableRow[];
+  h2RiseThreshold?: number | null;
 }) {
-  const [rows, setRows] = useState<EditableRow[]>(
-    initialRows.length ? initialRows : [emptyRow(1, 0)]
-  );
+  const [rows, setRows] = useState<EditableRow[]>(() => buildInitialRows(initialRows));
+  const [showChart, setShowChart] = useState(false);
   const [state, formAction, pending] = useActionState<SamplesFormState, FormData>(
     saveSamplesAction,
     {}
@@ -54,11 +90,8 @@ export function SampleTable({
 
   function addRow() {
     setRows((prev) => {
-      const last = prev[prev.length - 1];
-      const nextNum = (last?.sampleNumber ?? 0) + 1;
-      const lastTime = typeof last?.timeMinutes === "number" ? last.timeMinutes : 0;
-      // Suggest a +20 min interval, a common breath-test cadence.
-      return [...prev, emptyRow(nextNum, lastTime + 20)];
+      const nextNum = (prev[prev.length - 1]?.sampleNumber ?? 0) + 1;
+      return [...prev, emptyRow(nextNum)];
     });
   }
 
@@ -66,10 +99,18 @@ export function SampleTable({
     setRows((prev) => (prev.length === 1 ? prev : prev.filter((_, idx) => idx !== i)));
   }
 
+  const chartSamples = rows.map((r) => ({
+    timeMinutes: r.timeMinutes === "" ? 0 : Number(r.timeMinutes),
+    h2Ppm: numOrNull(r.h2Ppm),
+    ch4Ppm: numOrNull(r.ch4Ppm),
+    skipped: r.skipped,
+  }));
+
   const serialized = JSON.stringify(
-    rows.map((r) => ({
+    rows.filter((r) => !isBlankRow(r)).map((r) => ({
       sampleNumber: r.sampleNumber,
       timeMinutes: r.timeMinutes === "" ? 0 : r.timeMinutes,
+      clockTime: r.clockTime,
       h2Ppm: numOrNull(r.h2Ppm),
       ch4Ppm: numOrNull(r.ch4Ppm),
       co2Percent: numOrNull(r.co2Percent),
@@ -94,7 +135,8 @@ export function SampleTable({
           <thead className="bg-slate-50 text-left text-xs font-medium uppercase tracking-wide text-slate-500">
             <tr>
               <th className="px-2 py-2">#</th>
-              <th className="px-2 py-2">Time (min)</th>
+              <th className="px-2 py-2">Interval (min)</th>
+              <th className="px-2 py-2">Time</th>
               <th className="px-2 py-2">H₂ (ppm)</th>
               <th className="px-2 py-2">CH₄ (ppm)</th>
               <th className="px-2 py-2">H₂+CH₄</th>
@@ -121,6 +163,9 @@ export function SampleTable({
                   </td>
                   <td className="px-2 py-1">
                     <NumCell value={r.timeMinutes} onChange={(v) => update(i, "timeMinutes", v)} width="w-20" />
+                  </td>
+                  <td className="px-2 py-1">
+                    <ClockCell value={r.clockTime} onChange={(v) => update(i, "clockTime", v)} />
                   </td>
                   <td className="px-2 py-1">
                     <NumCell value={r.h2Ppm} onChange={(v) => update(i, "h2Ppm", v)} disabled={disabled} />
@@ -196,6 +241,13 @@ export function SampleTable({
         <button type="button" onClick={addRow} className="btn-secondary">
           + Add sample
         </button>
+        <button
+          type="button"
+          onClick={() => setShowChart((v) => !v)}
+          className="btn-secondary"
+        >
+          {showChart ? "Hide graph" : "Generate graph"}
+        </button>
         <div className="flex-1" />
         <Link href={`/tests/${testId}`} className="btn-secondary">
           Cancel
@@ -204,6 +256,25 @@ export function SampleTable({
           {pending ? "Saving…" : "Save samples"}
         </button>
       </div>
+
+      {/* On-demand charts built from the current (unsaved) rows, so the entry
+          person can review the curves before saving. */}
+      {showChart && (
+        <div className="animate-fade-in-up grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <div className="rounded-lg border border-clinical-border bg-white p-4">
+            <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-400">
+              H₂ over time
+            </h3>
+            <BreathChart samples={chartSamples} series={["h2"]} h2RiseThreshold={h2RiseThreshold} />
+          </div>
+          <div className="rounded-lg border border-clinical-border bg-white p-4">
+            <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-400">
+              CH₄ over time
+            </h3>
+            <BreathChart samples={chartSamples} series={["ch4"]} ch4Threshold={CH4_TRIGGER_PPM} />
+          </div>
+        </div>
+      )}
     </form>
   );
 }
@@ -229,6 +300,47 @@ function NumCell({
       className={`input ${width} px-2 py-1 disabled:bg-slate-100`}
       value={value}
       onChange={(e) => onChange(e.target.value === "" ? "" : Number(e.target.value))}
+    />
+  );
+}
+
+// Free-text clock entry that normalizes on blur: "1330" → "1:30 PM" on screen,
+// stored as standard 24h "HH:mm". `value` is always the standardized form.
+function ClockCell({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  const [text, setText] = useState(() => formatClock12(value));
+
+  // Resync when the row's stored value changes (e.g. rows removed/reordered).
+  useEffect(() => {
+    setText(formatClock12(value));
+  }, [value]);
+
+  function commit() {
+    const std = parseClockInput(text);
+    onChange(std ?? "");
+    setText(std ? formatClock12(std) : "");
+  }
+
+  return (
+    <input
+      type="text"
+      inputMode="numeric"
+      placeholder="e.g. 1:30 PM"
+      className="input w-24 px-2 py-1"
+      value={text}
+      onChange={(e) => setText(e.target.value)}
+      onBlur={commit}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          commit();
+        }
+      }}
     />
   );
 }

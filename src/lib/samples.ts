@@ -22,7 +22,15 @@ const optNumber = z
 export const sampleRowSchema = z
   .object({
     sampleNumber: z.coerce.number().int().min(0, "Sample # must be ≥ 0"),
-    timeMinutes: z.coerce.number().int("Time must be whole minutes"),
+    timeMinutes: z.coerce.number().int("Interval must be whole minutes"),
+    // Wall-clock collection time in standard 24h "HH:mm" (empty allowed).
+    // Ends with .nullish() so the key is optional on input (empty rows / scripts).
+    clockTime: z
+      .string()
+      .trim()
+      .refine((v) => v === "" || /^\d{2}:\d{2}$/.test(v), "Time must be HH:mm")
+      .transform((v) => v || null)
+      .nullish(),
     h2Ppm: optNumber,
     ch4Ppm: optNumber,
     co2Percent: optNumber,
@@ -86,6 +94,7 @@ export async function saveSamples(
           testId,
           sampleNumber: r.sampleNumber,
           timeMinutes: r.timeMinutes,
+          clockTime: r.clockTime,
           h2Ppm: r.h2Ppm,
           ch4Ppm: r.ch4Ppm,
           co2Percent: r.co2Percent,

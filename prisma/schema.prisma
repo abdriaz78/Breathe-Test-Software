@@ -211,6 +211,8 @@ model Sample {
 
   sampleNumber Int
   timeMinutes  Int // time interval from baseline, in minutes
+  // Wall-clock collection time, stored in standard 24h "HH:mm"; displayed 12h (e.g. 1:30 PM).
+  clockTime    String?
 
   h2Ppm  Decimal? @db.Decimal(8, 2)
   ch4Ppm Decimal? @db.Decimal(8, 2)

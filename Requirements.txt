@@ -15,3 +15,17 @@ Main scope for Phase 1:
 
 Important clinical requirement:
 The system should not automatically diagnose the patient. It may show interpretation support flags based on approved thresholds, but final diagnosis/recommendation must remain under physician review.
+
+NEW REQUIREMENTS
+HOSPITAL LOGO AT HEADER AND FOOTER OF REPORT
+
+showing all report in patient tab
+showing graph in samples page
+fix atleast 6 samples
+adding another trigger line for CH4 fix at 10
+positive/negative
+make 2 graphs. 1 for CH4 trigger at 10, 1 for H2 trigger at base+20
+remove ch4+h2 line from graphs but remain in table
+date filter for todays patient to quickly enter samples for todays patients
+adding a timer like in the top it must me showing that patient 1 timer, patient 2 timer whoever are in progress
+

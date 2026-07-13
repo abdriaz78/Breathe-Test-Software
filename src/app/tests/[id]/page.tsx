@@ -7,6 +7,7 @@ import { can } from "@/lib/rbac";
 import { AppShell } from "@/components/AppShell";
 import { SampleReadout } from "@/components/SampleReadout";
 import { BreathChart } from "@/components/BreathChart";
+import { CH4_TRIGGER_PPM } from "@/lib/chart-geometry";
 import { WorkflowPanel } from "@/components/WorkflowPanel";
 import { ShareButton } from "@/components/ShareButton";
 
@@ -182,25 +183,33 @@ export default async function TestDetailPage({
         </section>
       </div>
 
-      {test.samples.some((s) => !s.skipped) && (
-        <section className="card mt-6">
-          <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-slate-400">
-            Chart — H₂ / CH₄ / H₂+CH₄ over time
-          </h2>
-          <BreathChart
-            samples={test.samples.map((s) => ({
-              timeMinutes: s.timeMinutes,
-              h2Ppm: s.h2Ppm != null ? Number(s.h2Ppm) : null,
-              ch4Ppm: s.ch4Ppm != null ? Number(s.ch4Ppm) : null,
-              skipped: s.skipped,
-            }))}
-            h2RiseThreshold={
-              (test.testType.interpretationRules as { h2RiseFromBaselinePpm?: number } | null)
-                ?.h2RiseFromBaselinePpm ?? null
-            }
-          />
-        </section>
-      )}
+      {test.samples.some((s) => !s.skipped) && (() => {
+        const chartSamples = test.samples.map((s) => ({
+          timeMinutes: s.timeMinutes,
+          h2Ppm: s.h2Ppm != null ? Number(s.h2Ppm) : null,
+          ch4Ppm: s.ch4Ppm != null ? Number(s.ch4Ppm) : null,
+          skipped: s.skipped,
+        }));
+        const h2Threshold =
+          (test.testType.interpretationRules as { h2RiseFromBaselinePpm?: number } | null)
+            ?.h2RiseFromBaselinePpm ?? null;
+        return (
+          <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
+            <section className="card">
+              <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-slate-400">
+                H₂ over time
+              </h2>
+              <BreathChart samples={chartSamples} series={["h2"]} h2RiseThreshold={h2Threshold} />
+            </section>
+            <section className="card">
+              <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-slate-400">
+                CH₄ over time
+              </h2>
+              <BreathChart samples={chartSamples} series={["ch4"]} ch4Threshold={CH4_TRIGGER_PPM} />
+            </section>
+          </div>
+        );
+      })()}
 
       <section className="card mt-6">
         <div className="flex items-center justify-between">
@@ -220,6 +229,7 @@ export default async function TestDetailPage({
           samples={test.samples.map((s) => ({
             sampleNumber: s.sampleNumber,
             timeMinutes: s.timeMinutes,
+            clockTime: s.clockTime,
             h2Ppm: s.h2Ppm != null ? Number(s.h2Ppm) : null,
             ch4Ppm: s.ch4Ppm != null ? Number(s.ch4Ppm) : null,
             co2Percent: s.co2Percent != null ? Number(s.co2Percent) : null,

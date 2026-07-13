@@ -1,8 +1,10 @@
 import { sampleTotal } from "@/lib/sample-math";
+import { formatClock12 } from "@/lib/time-format";
 
 export interface ReadonlySample {
   sampleNumber: number;
   timeMinutes: number;
+  clockTime: string | null;
   h2Ppm: number | null;
   ch4Ppm: number | null;
   co2Percent: number | null;
@@ -28,7 +30,8 @@ export function SampleReadout({ samples }: { samples: ReadonlySample[] }) {
         <thead className="bg-slate-50 text-left text-xs font-medium uppercase tracking-wide text-slate-500">
           <tr>
             <th className="px-3 py-2">#</th>
-            <th className="px-3 py-2">Time (min)</th>
+            <th className="px-3 py-2">Interval (min)</th>
+            <th className="px-3 py-2">Time</th>
             <th className="px-3 py-2 text-right">H₂ (ppm)</th>
             <th className="px-3 py-2 text-right">CH₄ (ppm)</th>
             <th className="px-3 py-2 text-right">H₂+CH₄</th>
@@ -44,6 +47,7 @@ export function SampleReadout({ samples }: { samples: ReadonlySample[] }) {
               <tr key={s.sampleNumber} className={s.skipped ? "bg-slate-50 text-slate-400" : ""}>
                 <td className="px-3 py-2">{s.sampleNumber}</td>
                 <td className="px-3 py-2">{s.timeMinutes}</td>
+                <td className="px-3 py-2">{formatClock12(s.clockTime) || "—"}</td>
                 {s.skipped ? (
                   <td colSpan={6} className="px-3 py-2 italic">
                     Skipped — {s.skippedReason || "no reason given"}

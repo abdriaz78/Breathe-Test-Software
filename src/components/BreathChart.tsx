@@ -2,6 +2,7 @@ import {
   buildChartGeometry,
   polylinePoints,
   type ChartSampleInput,
+  type SeriesKey,
 } from "@/lib/chart-geometry";
 
 // -----------------------------------------------------------------------------
@@ -14,15 +15,19 @@ import {
 export function BreathChart({
   samples,
   h2RiseThreshold,
+  ch4Threshold,
+  series,
   width = 640,
   height = 320,
 }: {
   samples: ChartSampleInput[];
   h2RiseThreshold?: number | null;
+  ch4Threshold?: number | null;
+  series?: SeriesKey[];
   width?: number;
   height?: number;
 }) {
-  const g = buildChartGeometry(samples, { width, height, h2RiseThreshold });
+  const g = buildChartGeometry(samples, { width, height, h2RiseThreshold, ch4Threshold, series });
 
   if (!g.hasData) {
     return (

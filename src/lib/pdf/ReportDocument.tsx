@@ -2,6 +2,7 @@ import React from "react";
 import { Document, Page, View, Text, Image, StyleSheet } from "@react-pdf/renderer";
 import type { ReportData } from "@/lib/report";
 import { sampleTotal } from "@/lib/sample-math";
+import { CH4_TRIGGER_PPM } from "@/lib/chart-geometry";
 import { ReportChart } from "./ReportChart";
 
 // -----------------------------------------------------------------------------
@@ -153,11 +154,13 @@ export function ReportDocument({ data }: { data: ReportData }) {
           <Field label="Technician" value={data.test.technicianName ?? "—"} third />
         </View>
 
-        {/* Chart */}
+        {/* Charts — H2 (baseline + threshold) and CH4 (fixed trigger) */}
         {data.samples.some((x) => !x.skipped) && (
           <>
-            <Text style={s.sectionTitle}>Chart — H2 / CH4 / H2+CH4 over time</Text>
-            <ReportChart samples={chartSamples} h2RiseThreshold={data.h2RiseThreshold} />
+            <Text style={s.sectionTitle}>H2 over time</Text>
+            <ReportChart samples={chartSamples} series={["h2"]} h2RiseThreshold={data.h2RiseThreshold} />
+            <Text style={s.sectionTitle}>CH4 over time</Text>
+            <ReportChart samples={chartSamples} series={["ch4"]} ch4Threshold={CH4_TRIGGER_PPM} />
           </>
         )}
 

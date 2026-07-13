@@ -4,6 +4,7 @@ import {
   buildChartGeometry,
   polylinePoints,
   type ChartSampleInput,
+  type SeriesKey,
 } from "@/lib/chart-geometry";
 
 // PDF chart — same geometry as the on-screen chart, drawn with react-pdf SVG
@@ -23,15 +24,19 @@ const MUTED = "#898781";
 export function ReportChart({
   samples,
   h2RiseThreshold,
+  ch4Threshold,
+  series,
   width = 520,
   height = 240,
 }: {
   samples: ChartSampleInput[];
   h2RiseThreshold?: number | null;
+  ch4Threshold?: number | null;
+  series?: SeriesKey[];
   width?: number;
   height?: number;
 }) {
-  const g = buildChartGeometry(samples, { width, height, h2RiseThreshold });
+  const g = buildChartGeometry(samples, { width, height, h2RiseThreshold, ch4Threshold, series });
   if (!g.hasData) return null;
 
   return (
