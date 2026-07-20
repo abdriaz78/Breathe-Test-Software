@@ -1,7 +1,9 @@
 import Link from "next/link";
-import { ROLE_LABELS } from "@/lib/rbac";
+import { can, ROLE_LABELS } from "@/lib/rbac";
 import type { CurrentUser } from "@/lib/session";
 import { SignOutButton } from "./SignOutButton";
+import { HeaderTimers } from "./HeaderTimers";
+import { DueBanner } from "./DueBanner";
 
 interface Crumb {
   label: string;
@@ -17,6 +19,7 @@ export function AppShell({
   breadcrumbs?: Crumb[];
   children: React.ReactNode;
 }) {
+  const canManageTimers = can(user.role, "test:timer");
   return (
     <div className="min-h-screen">
       <header className="sticky top-0 z-20 border-b border-clinical-border bg-white/90 backdrop-blur supports-[backdrop-filter]:bg-white/70">
@@ -33,6 +36,7 @@ export function AppShell({
             </div>
           </Link>
           <div className="flex items-center gap-4">
+            <HeaderTimers canManageTimers={canManageTimers} />
             <div className="text-right">
               <p className="text-sm font-medium text-slate-900">{user.name}</p>
               <p className="text-xs text-slate-500">{ROLE_LABELS[user.role]}</p>
@@ -41,6 +45,8 @@ export function AppShell({
           </div>
         </div>
       </header>
+
+      <DueBanner canManageTimers={canManageTimers} />
 
       <main className="mx-auto max-w-6xl animate-fade-in px-6 py-8">
         {breadcrumbs && breadcrumbs.length > 0 && (

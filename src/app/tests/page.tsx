@@ -4,6 +4,7 @@ import { requirePermission } from "@/lib/session";
 import { listTests, STATUS_LABEL, STATUS_STYLE } from "@/lib/tests";
 import { can } from "@/lib/rbac";
 import { AppShell } from "@/components/AppShell";
+import { TestRowTimer } from "@/components/TestRowTimer";
 
 function formatDate(d: Date | null): string {
   if (!d) return "—";
@@ -94,6 +95,7 @@ export default async function TestsPage({
                   <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_STYLE[t.status]}`}>
                     {STATUS_LABEL[t.status]}
                   </span>
+                  <TestRowTimer testId={t.id} />
                 </td>
                 <td className="px-4 py-3 text-right">
                   <Link href={`/tests/${t.id}`} className="text-brand hover:underline">

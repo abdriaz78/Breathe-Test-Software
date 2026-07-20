@@ -180,6 +180,13 @@ export async function getTestDetail(
     signatureName: t.signatureName,
     finalizedAt: t.finalizedAt,
     createdAt: t.createdAt,
+    timer: {
+      startedAt: t.timerStartedAt,
+      intervalMinutes: t.timerIntervalMin,
+      totalSamples: t.timerTotalSamples,
+      ackedIndex: t.timerAckedIndex,
+      endedAt: t.timerEndedAt,
+    },
     patient: {
       id: t.patient.id,
       mrn: t.patient.mrn,

@@ -9,6 +9,7 @@ import { SampleReadout } from "@/components/SampleReadout";
 import { BreathChart } from "@/components/BreathChart";
 import { CH4_TRIGGER_PPM } from "@/lib/chart-geometry";
 import { WorkflowPanel } from "@/components/WorkflowPanel";
+import { TimerPanel } from "@/components/TimerPanel";
 import { ShareButton } from "@/components/ShareButton";
 
 function formatDateTime(d: Date | null | string): string {
@@ -210,6 +211,25 @@ export default async function TestDetailPage({
           </div>
         );
       })()}
+
+      {test.status !== "FINALIZED" && (
+        <section className="card mt-6">
+          <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-slate-400">
+            Sample collection timer
+          </h2>
+          <TimerPanel
+            testId={test.id}
+            canManage={can(user.role, "test:timer")}
+            timer={{
+              startedAt: test.timer.startedAt?.toISOString() ?? null,
+              intervalMinutes: test.timer.intervalMinutes,
+              totalSamples: test.timer.totalSamples,
+              ackedIndex: test.timer.ackedIndex,
+              endedAt: test.timer.endedAt?.toISOString() ?? null,
+            }}
+          />
+        </section>
+      )}
 
       <section className="card mt-6">
         <div className="flex items-center justify-between">

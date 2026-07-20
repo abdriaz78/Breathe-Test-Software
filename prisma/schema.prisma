@@ -180,6 +180,15 @@ model BreathTest {
   // Workflow / status
   status ReportStatus @default(DRAFT)
 
+  // Sample collection timer. Due times are derived in the app
+  // (dueAt(n) = timerStartedAt + n * timerIntervalMin) rather than stored, so
+  // there is nothing to drift out of sync. See src/lib/timers.ts.
+  timerStartedAt    DateTime? // set when a nurse presses "Start collection"
+  timerIntervalMin  Int       @default(30) // cadence between samples
+  timerTotalSamples Int? // planned count incl. baseline (e.g. 7)
+  timerAckedIndex   Int       @default(0) // highest sample index acknowledged
+  timerEndedAt      DateTime? // all samples acked, or the report was finalized
+
   // People
   createdBy    User   @relation("TestCreatedBy", fields: [createdById], references: [id])
   createdById  String
@@ -201,6 +210,7 @@ model BreathTest {
   @@index([patientId])
   @@index([status])
   @@index([testTypeId])
+  @@index([status, timerStartedAt])
 }
 
 // A single breath sample within a test.

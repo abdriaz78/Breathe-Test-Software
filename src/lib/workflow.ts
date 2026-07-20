@@ -123,6 +123,9 @@ export async function finalizeReport(
       signedAt: now,
       signatureName,
       finalizedAt: now,
+      // A finalized report can't take more samples — drop it from the header
+      // timer list (src/lib/timers.ts).
+      timerEndedAt: test.timerEndedAt ?? (test.timerStartedAt ? now : null),
       interpretationSnapshot: interpretation as unknown as object,
     },
   });

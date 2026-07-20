@@ -16,6 +16,7 @@ export type Permission =
   | "test:read"
   | "test:create"
   | "test:update" // edit setup/samples while not finalized
+  | "test:timer" // start / acknowledge the sample collection timer
   | "test:finalize" // sign & lock
   | "test:reopen" // unlock a finalized report (with reason)
   | "test:diagnose" // author diagnosis/recommendation
@@ -31,18 +32,18 @@ export type Permission =
 export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
   ADMIN: [
     "patient:read", "patient:create", "patient:update",
-    "test:read", "test:create", "test:update", "test:reopen",
+    "test:read", "test:create", "test:update", "test:timer", "test:reopen",
     "report:export", "report:share",
     "user:manage", "testtype:manage", "hospital:manage", "audit:read",
   ],
   NURSE: [
     "patient:read", "patient:create", "patient:update",
-    "test:read", "test:create", "test:update",
+    "test:read", "test:create", "test:update", "test:timer",
     "report:export", "report:share",
   ],
   PHYSICIAN: [
     "patient:read",
-    "test:read", "test:update", "test:finalize", "test:reopen", "test:diagnose",
+    "test:read", "test:update", "test:timer", "test:finalize", "test:reopen", "test:diagnose",
     "report:export", "report:share",
     "audit:read",
   ],
