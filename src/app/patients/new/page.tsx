@@ -5,11 +5,18 @@ import { PatientForm } from "@/components/PatientForm";
 
 export default async function NewPatientPage() {
   const user = await requirePermission("patient:create");
-  const hospitals = await prisma.hospital.findMany({
-    where: { isActive: true },
-    orderBy: { name: "asc" },
-    select: { id: true, name: true },
-  });
+  const [hospitals, physicians] = await Promise.all([
+    prisma.hospital.findMany({
+      where: { isActive: true },
+      orderBy: { name: "asc" },
+      select: { id: true, name: true },
+    }),
+    prisma.user.findMany({
+      where: { role: "PHYSICIAN", isActive: true },
+      orderBy: { name: "asc" },
+      select: { id: true, name: true, title: true },
+    }),
+  ]);
 
   return (
     <AppShell
@@ -32,7 +39,7 @@ export default async function NewPatientPage() {
           patients can be registered.
         </div>
       ) : (
-        <PatientForm hospitals={hospitals} />
+        <PatientForm hospitals={hospitals} physicians={physicians} />
       )}
     </AppShell>
   );

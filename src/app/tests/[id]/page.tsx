@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { requirePermission, requestContext } from "@/lib/session";
 import { getTestDetail, STATUS_LABEL, STATUS_STYLE } from "@/lib/tests";
 import { getTestAuditTrail } from "@/lib/workflow";
+import { summarizeResult, type InterpretationRules } from "@/lib/interpretation";
 import { can } from "@/lib/rbac";
 import { AppShell } from "@/components/AppShell";
 import { SampleReadout } from "@/components/SampleReadout";
@@ -51,6 +52,16 @@ export default async function TestDetailPage({
   const ctx = await requestContext();
   const test = await getTestDetail(user, id, ctx);
   if (!test) notFound();
+
+  const resultSummary = summarizeResult(
+    test.samples.map((s) => ({
+      timeMinutes: s.timeMinutes,
+      h2Ppm: s.h2Ppm != null ? Number(s.h2Ppm) : null,
+      ch4Ppm: s.ch4Ppm != null ? Number(s.ch4Ppm) : null,
+      skipped: s.skipped,
+    })),
+    test.testType.interpretationRules as InterpretationRules | null
+  );
 
   const showAudit = can(user.role, "audit:read");
   const auditTrail = showAudit ? await getTestAuditTrail(user, id) : [];
@@ -183,6 +194,27 @@ export default async function TestDetailPage({
           </dl>
         </section>
       </div>
+
+      {resultSummary && (
+        <section className="card mt-6">
+          <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-400">
+            Test result
+          </h2>
+          <p
+            className={`text-base font-semibold ${
+              resultSummary.anyMet ? "text-amber-700" : "text-slate-900"
+            }`}
+          >
+            {resultSummary.verdict} {(test.substrate || test.testType.name).toLowerCase()} breath
+            test result.
+          </p>
+          <p className="mt-1 text-sm text-slate-500">{resultSummary.statsLine}</p>
+          <p className="mt-2 text-xs text-slate-400">
+            Automated threshold support only — not a diagnosis. Final interpretation is
+            the reviewing physician&apos;s.
+          </p>
+        </section>
+      )}
 
       {test.samples.some((s) => !s.skipped) && (() => {
         const chartSamples = test.samples.map((s) => ({

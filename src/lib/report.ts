@@ -3,8 +3,10 @@ import { prisma } from "./prisma";
 import { decrypt } from "./crypto";
 import {
   computeInterpretation,
+  summarizeResult,
   type InterpretationResult,
   type InterpretationRules,
+  type ResultSummary,
 } from "./interpretation";
 
 // -----------------------------------------------------------------------------
@@ -51,13 +53,25 @@ export interface ReportData {
     technicianName: string | null;
   };
   samples: ReportSample[];
+  /** Plain-language description of substrate/dose, e.g. "Patient received as
+   * the test substrate 75 g glucose in 250 mL water. Breath was collected at
+   * specified time intervals." Omitted when neither field is set. */
+  methodText: string | null;
+  /** Unique, non-empty symptoms reported across samples during collection —
+   * distinct from preTestSymptoms, which are recorded before the test starts. */
+  symptomsDuringTest: string | null;
   interpretation: InterpretationResult;
+  resultSummary: ResultSummary | null;
   /** H2 rise-from-baseline threshold (ppm) for the chart's red trigger line. */
   h2RiseThreshold: number | null;
   diagnosis: string | null;
   recommendation: string | null;
   signature: {
     name: string | null;
+    /** e.g. "Dr." — used for the title line under the investigator's name. */
+    title: string | null;
+    /** Free-text credentials/license, e.g. "MBBS, MSc Gastroenterology". */
+    licenseNo: string | null;
     signedAt: Date | null;
     finalizedAt: Date | null;
   };
@@ -74,7 +88,7 @@ export async function loadReportData(id: string): Promise<ReportData | null> {
       testType: { select: { name: true, interpretationRules: true } },
       department: { select: { name: true } },
       technician: { select: { name: true, title: true } },
-      signedBy: { select: { name: true, title: true } },
+      signedBy: { select: { name: true, title: true, licenseNo: true } },
       samples: { orderBy: { sampleNumber: "asc" } },
     },
   });
@@ -102,6 +116,31 @@ export async function loadReportData(id: string): Promise<ReportData | null> {
     })),
     rules
   );
+  const resultSummary = summarizeResult(
+    samples.map((s) => ({
+      timeMinutes: s.timeMinutes,
+      h2Ppm: s.h2Ppm,
+      ch4Ppm: s.ch4Ppm,
+      skipped: s.skipped,
+    })),
+    rules
+  );
+
+  const methodText = t.dose
+    ? `Patient received as the test substrate ${t.dose}. Breath was collected after specified time intervals.`
+    : t.substrate
+      ? `Patient received ${t.substrate} as the test substrate. Breath was collected after specified time intervals.`
+      : null;
+
+  const symptomsDuringTest =
+    Array.from(
+      new Set(
+        samples
+          .filter((s) => !s.skipped && s.symptoms)
+          .map((s) => s.symptoms!.trim())
+          .filter(Boolean)
+      )
+    ).join(", ") || null;
 
   const techName = t.technician
     ? `${t.technician.title ? t.technician.title + " " : ""}${t.technician.name}`
@@ -138,12 +177,17 @@ export async function loadReportData(id: string): Promise<ReportData | null> {
       technicianName: techName,
     },
     samples,
+    methodText,
+    symptomsDuringTest,
     interpretation,
+    resultSummary,
     h2RiseThreshold: rules?.h2RiseFromBaselinePpm ?? null,
     diagnosis: t.diagnosis,
     recommendation: t.recommendation,
     signature: {
       name: signName,
+      title: t.signedBy?.title ?? null,
+      licenseNo: t.signedBy?.licenseNo ?? null,
       signedAt: t.signedAt,
       finalizedAt: t.finalizedAt,
     },

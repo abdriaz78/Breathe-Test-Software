@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import Link from "next/link";
 import { createPatientAction, type FormState } from "@/app/patients/actions";
 
@@ -9,13 +9,33 @@ interface HospitalOption {
   name: string;
 }
 
-export function PatientForm({ hospitals }: { hospitals: HospitalOption[] }) {
+interface PhysicianOption {
+  id: string;
+  name: string;
+  title: string | null;
+}
+
+const OTHER_PHYSICIAN = "__other__";
+
+export function PatientForm({
+  hospitals,
+  physicians,
+}: {
+  hospitals: HospitalOption[];
+  physicians: PhysicianOption[];
+}) {
   const [state, formAction, pending] = useActionState<FormState, FormData>(
     createPatientAction,
     {}
   );
 
   const err = (field: string) => state.fieldErrors?.[field];
+
+  // "Other" keeps this usable for referring physicians who aren't registered
+  // system users (the common case — most referrals come from outside doctors).
+  const [physicianMode, setPhysicianMode] = useState<"select" | "other">(
+    physicians.length ? "select" : "other"
+  );
 
   return (
     <form action={formAction} className="card max-w-2xl space-y-5">
@@ -68,11 +88,54 @@ export function PatientForm({ hospitals }: { hospitals: HospitalOption[] }) {
         </div>
 
         <div className="sm:col-span-2">
-          <Field
-            label="Referring physician"
-            name="referringPhysician"
-            error={err("referringPhysician")}
-          />
+          <label className="label" htmlFor="referringPhysician">
+            Referring physician
+          </label>
+          {physicianMode === "select" ? (
+            <select
+              id="referringPhysician"
+              name="referringPhysician"
+              className="input"
+              defaultValue=""
+              onChange={(e) => {
+                if (e.target.value === OTHER_PHYSICIAN) setPhysicianMode("other");
+              }}
+            >
+              <option value="">None</option>
+              {physicians.map((p) => {
+                const label = p.title ? `${p.title} ${p.name}` : p.name;
+                return (
+                  <option key={p.id} value={label}>
+                    {label}
+                  </option>
+                );
+              })}
+              <option value={OTHER_PHYSICIAN}>Other (not listed)…</option>
+            </select>
+          ) : (
+            <div className="flex items-center gap-2">
+              <input
+                id="referringPhysician"
+                name="referringPhysician"
+                type="text"
+                className="input"
+                placeholder="Referring physician name"
+                autoFocus={physicians.length > 0}
+              />
+              {physicians.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setPhysicianMode("select")}
+                  className="whitespace-nowrap text-sm text-brand hover:underline"
+                >
+                  Choose from list
+                </button>
+              )}
+            </div>
+          )}
+          {err("referringPhysician") && (
+            <p className="mt-1 text-xs text-red-600">{err("referringPhysician")}</p>
+          )}
         </div>
       </div>
 
