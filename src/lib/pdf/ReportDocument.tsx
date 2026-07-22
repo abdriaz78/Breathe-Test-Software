@@ -112,6 +112,7 @@ const GENDER: Record<string, string> = { MALE: "Male", FEMALE: "Female", OTHER: 
 export function ReportDocument({ data }: { data: ReportData }) {
   const pill = STATUS_PILL[data.status];
   const chartSamples = data.samples.map((x) => ({
+    sampleNumber: x.sampleNumber,
     timeMinutes: x.timeMinutes,
     h2Ppm: x.h2Ppm,
     ch4Ppm: x.ch4Ppm,

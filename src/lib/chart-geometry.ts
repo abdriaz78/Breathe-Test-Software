@@ -11,6 +11,7 @@ import { sampleTotal } from "./sample-math";
 // -----------------------------------------------------------------------------
 
 export interface ChartSampleInput {
+  sampleNumber: number;
   timeMinutes: number;
   h2Ppm: number | null;
   ch4Ppm: number | null;
@@ -21,7 +22,7 @@ export interface Pt {
   x: number;
   y: number;
   value: number;
-  time: number;
+  sampleNumber: number;
 }
 
 export type SeriesKey = "h2" | "ch4" | "combined";
@@ -112,7 +113,7 @@ export function buildChartGeometry(
 
   const active = samples
     .filter((s) => !s.skipped)
-    .sort((a, b) => a.timeMinutes - b.timeMinutes);
+    .sort((a, b) => a.sampleNumber - b.sampleNumber);
 
   // Baseline H2 = first (earliest) non-null H2 reading — same definition the
   // interpretation engine uses. H₂ trigger sits at baseline + threshold.
@@ -130,9 +131,9 @@ export function buildChartGeometry(
     return sampleTotal(s.h2Ppm, s.ch4Ppm);
   };
 
-  const times = active.map((s) => s.timeMinutes);
-  const minTime = times.length ? Math.min(...times) : 0;
-  const maxTime = times.length ? Math.max(...times) : 60;
+  const numbers = active.map((s) => s.sampleNumber);
+  const minNumber = numbers.length ? Math.min(...numbers) : 0;
+  const maxNumber = numbers.length ? Math.max(...numbers) : 1;
 
   let maxVal = 0;
   for (const s of active) {
@@ -148,9 +149,9 @@ export function buildChartGeometry(
 
   const innerW = width - plot.left - plot.right;
   const innerH = height - plot.top - plot.bottom;
-  const spanTime = maxTime - minTime || 1;
+  const spanNumber = maxNumber - minNumber || 1;
 
-  const xOf = (t: number) => plot.left + ((t - minTime) / spanTime) * innerW;
+  const xOf = (n: number) => plot.left + ((n - minNumber) / spanNumber) * innerW;
   const yOf = (v: number) => plot.top + innerH - (v / yMax) * innerH;
 
   const series: SeriesGeometry[] = activeMetas.map((meta) => {
@@ -158,7 +159,7 @@ export function buildChartGeometry(
     for (const s of active) {
       const v = valueFor(s, meta.key);
       if (v == null) continue;
-      points.push({ x: xOf(s.timeMinutes), y: yOf(v), value: v, time: s.timeMinutes });
+      points.push({ x: xOf(s.sampleNumber), y: yOf(v), value: v, sampleNumber: s.sampleNumber });
     }
     return { ...meta, points, last: points[points.length - 1] ?? null };
   });
@@ -169,9 +170,9 @@ export function buildChartGeometry(
     return { value, y: yOf(value) };
   });
 
-  // X ticks: one per distinct sample time (deduplicated).
-  const uniqueTimes = Array.from(new Set(times));
-  const xTicks = uniqueTimes.map((t) => ({ value: t, x: xOf(t) }));
+  // X ticks: one per distinct sample number (deduplicated).
+  const uniqueNumbers = Array.from(new Set(numbers));
+  const xTicks = uniqueNumbers.map((n) => ({ value: n, x: xOf(n) }));
 
   // Reference lines. H₂ chart: green baseline + red trigger (baseline + threshold).
   // CH₄ chart: a single fixed red trigger line at the absolute threshold.
@@ -215,7 +216,7 @@ export function buildChartGeometry(
     triggerLines,
     hasData: active.length > 0 && maxVal > 0,
     yUnit: "ppm",
-    xUnit: "min",
+    xUnit: "sample #",
   };
 }
 

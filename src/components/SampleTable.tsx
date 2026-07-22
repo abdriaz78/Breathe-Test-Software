@@ -24,12 +24,12 @@ export interface EditableRow {
   skippedReason: string;
 }
 
-// Interval is left blank by default so the technician chooses their own cadence
-// (e.g. 20 or 30 min) rather than inheriting a suggested value.
+// Interval defaults to a 30-minute cadence (0, 30, 60, ...) based on sample
+// number; the technician can still override it per row.
 function emptyRow(sampleNumber: number): EditableRow {
   return {
     sampleNumber,
-    timeMinutes: "",
+    timeMinutes: sampleNumber * 30,
     clockTime: "",
     h2Ppm: "",
     ch4Ppm: "",
@@ -47,7 +47,6 @@ const numOrNull = (v: number | "") => (v === "" ? null : Number(v));
 // persist as empty samples.
 function isBlankRow(r: EditableRow): boolean {
   return (
-    r.timeMinutes === "" &&
     r.clockTime === "" &&
     r.h2Ppm === "" &&
     r.ch4Ppm === "" &&
@@ -61,7 +60,7 @@ function isBlankRow(r: EditableRow): boolean {
 // Start with the saved rows, padded up to DEFAULT_ROWS blank rows for entry.
 function buildInitialRows(saved: EditableRow[]): EditableRow[] {
   const rows = [...saved];
-  let next = (rows[rows.length - 1]?.sampleNumber ?? rows.length) + 1;
+  let next = rows.length === 0 ? 0 : rows[rows.length - 1].sampleNumber + 1;
   while (rows.length < DEFAULT_ROWS) {
     rows.push(emptyRow(next++));
   }
@@ -90,7 +89,7 @@ export function SampleTable({
 
   function addRow() {
     setRows((prev) => {
-      const nextNum = (prev[prev.length - 1]?.sampleNumber ?? 0) + 1;
+      const nextNum = prev.length === 0 ? 0 : prev[prev.length - 1].sampleNumber + 1;
       return [...prev, emptyRow(nextNum)];
     });
   }
@@ -100,6 +99,7 @@ export function SampleTable({
   }
 
   const chartSamples = rows.map((r) => ({
+    sampleNumber: r.sampleNumber,
     timeMinutes: r.timeMinutes === "" ? 0 : Number(r.timeMinutes),
     h2Ppm: numOrNull(r.h2Ppm),
     ch4Ppm: numOrNull(r.ch4Ppm),

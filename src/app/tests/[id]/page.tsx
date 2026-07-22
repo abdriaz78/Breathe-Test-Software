@@ -218,6 +218,7 @@ export default async function TestDetailPage({
 
       {test.samples.some((s) => !s.skipped) && (() => {
         const chartSamples = test.samples.map((s) => ({
+          sampleNumber: s.sampleNumber,
           timeMinutes: s.timeMinutes,
           h2Ppm: s.h2Ppm != null ? Number(s.h2Ppm) : null,
           ch4Ppm: s.ch4Ppm != null ? Number(s.ch4Ppm) : null,

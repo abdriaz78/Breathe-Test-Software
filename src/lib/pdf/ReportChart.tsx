@@ -93,7 +93,7 @@ export function ReportChart({
         fill={MUTED}
         textAnchor="middle"
       >
-        time (min)
+        {g.xUnit}
       </SvgText>
 
       {/* Left axis */}

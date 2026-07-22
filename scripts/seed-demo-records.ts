@@ -27,7 +27,7 @@ async function asUser(email: string): Promise<CurrentUser> {
 function rows(vals: Array<[number, number, number, number]>): SampleRowInput[] {
   // [time, h2, ch4, co2]
   return vals.map(([t, h2, ch4, co2], i) => ({
-    sampleNumber: i + 1,
+    sampleNumber: i,
     timeMinutes: t,
     h2Ppm: h2,
     ch4Ppm: ch4,
