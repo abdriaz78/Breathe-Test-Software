@@ -12,6 +12,7 @@ export default function LoginPage() {
   );
 }
 
+// Abd
 function LoginForm() {
   const router = useRouter();
   const params = useSearchParams();
@@ -39,6 +40,7 @@ function LoginForm() {
     router.push(callbackUrl);
     router.refresh();
   }
+
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-clinical-bg p-4">
