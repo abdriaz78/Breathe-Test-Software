@@ -2,7 +2,11 @@
 
 import { useActionState, useEffect, useState } from "react";
 import Link from "next/link";
-import { saveSamplesAction, type SamplesFormState } from "@/app/tests/[id]/samples/actions";
+import {
+  saveSamplesAction,
+  completeSampleCollectionAction,
+  type SamplesFormState,
+} from "@/app/tests/[id]/samples/actions";
 import { sampleTotal } from "@/lib/sample-math";
 import { formatClock12, parseClockInput } from "@/lib/time-format";
 import { BreathChart } from "@/components/BreathChart";
@@ -82,6 +86,10 @@ export function SampleTable({
     saveSamplesAction,
     {}
   );
+  const [completeState, completeFormAction, completing] = useActionState<SamplesFormState, FormData>(
+    completeSampleCollectionAction,
+    {}
+  );
 
   function update<K extends keyof EditableRow>(i: number, key: K, value: EditableRow[K]) {
     setRows((prev) => prev.map((r, idx) => (idx === i ? { ...r, [key]: value } : r)));
@@ -122,12 +130,11 @@ export function SampleTable({
   );
 
   return (
-    <form action={formAction} className="space-y-4">
-      <input type="hidden" name="testId" value={testId} />
-      <input type="hidden" name="rows" value={serialized} />
-
-      {state.error && (
-        <div className="animate-fade-in-up rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{state.error}</div>
+    <div className="space-y-4">
+      {(state.error || completeState.error) && (
+        <div className="animate-fade-in-up rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+          {state.error || completeState.error}
+        </div>
       )}
 
       <div className="overflow-x-auto rounded-lg border border-clinical-border bg-white">
@@ -252,9 +259,31 @@ export function SampleTable({
         <Link href={`/tests/${testId}`} className="btn-secondary">
           Cancel
         </Link>
-        <button type="submit" className="btn-primary" disabled={pending}>
-          {pending ? "Saving…" : "Save samples"}
-        </button>
+        <form
+          action={completeFormAction}
+          onSubmit={(e) => {
+            if (
+              !confirm(
+                "Mark sample collection complete? This saves the current samples and locks the report for physician review."
+              )
+            ) {
+              e.preventDefault();
+            }
+          }}
+        >
+          <input type="hidden" name="testId" value={testId} />
+          <input type="hidden" name="rows" value={serialized} />
+          <button type="submit" className="btn-secondary" disabled={pending || completing}>
+            {completing ? "Completing…" : "Mark sample collection complete"}
+          </button>
+        </form>
+        <form action={formAction}>
+          <input type="hidden" name="testId" value={testId} />
+          <input type="hidden" name="rows" value={serialized} />
+          <button type="submit" className="btn-primary" disabled={pending || completing}>
+            {pending ? "Saving…" : "Save samples"}
+          </button>
+        </form>
       </div>
 
       {/* On-demand charts built from the current (unsaved) rows, so the entry
@@ -275,7 +304,7 @@ export function SampleTable({
           </div>
         </div>
       )}
-    </form>
+    </div>
   );
 }
 

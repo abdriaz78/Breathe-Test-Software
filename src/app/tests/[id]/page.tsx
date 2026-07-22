@@ -303,12 +303,7 @@ export default async function TestDetailPage({
           status={test.status}
           diagnosis={test.diagnosis}
           recommendation={test.recommendation}
-          hasSamples={test.samples.length > 0}
           canDiagnose={can(user.role, "test:diagnose")}
-          canFinalize={can(user.role, "test:finalize")}
-          canReopen={can(user.role, "test:reopen")}
-          signatureName={test.signatureName}
-          signedAt={test.signedAt ? formatDateTime(test.signedAt) : null}
         />
       </section>
 

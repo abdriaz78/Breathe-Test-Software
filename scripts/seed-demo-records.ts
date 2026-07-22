@@ -7,7 +7,7 @@ import type { CurrentUser } from "@/lib/session";
 import { createPatient } from "@/lib/patients";
 import { createTest } from "@/lib/tests";
 import { saveSamples, type SampleRowInput } from "@/lib/samples";
-import { saveDiagnosis, finalizeReport } from "@/lib/workflow";
+import { saveDiagnosis, completeSampleCollection } from "@/lib/workflow";
 
 const ctx = { ipAddress: "127.0.0.1", userAgent: "seed-demo" };
 
@@ -85,7 +85,7 @@ async function main() {
     let status = "IN_PROGRESS";
     if (opts.finalize) {
       await saveDiagnosis(physician, testId, opts.finalize, ctx);
-      await finalizeReport(physician, testId, opts.finalize, ctx);
+      await completeSampleCollection(nurse, testId, ctx);
       status = "FINALIZED";
     }
     created.push({ label: opts.label, testId, status });
