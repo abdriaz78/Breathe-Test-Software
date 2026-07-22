@@ -7,7 +7,7 @@ import type { CurrentUser } from "@/lib/session";
 import { createPatient, listPatients, getPatient } from "@/lib/patients";
 import { createTest, getTestDetail, listTests, listTestsForExport } from "@/lib/tests";
 import { saveSamples, ReportLockedError } from "@/lib/samples";
-import { saveDiagnosis, finalizeReport, reopenReport, getTestAuditTrail } from "@/lib/workflow";
+import { saveDiagnosis, completeSampleCollection, getTestAuditTrail } from "@/lib/workflow";
 import { loadReportData } from "@/lib/report";
 import { ReportDocument } from "@/lib/pdf/ReportDocument";
 import { toCsv } from "@/lib/csv";
@@ -111,7 +111,7 @@ async function main() {
   check("disclaimer present (no auto-diagnosis)", !!report?.interpretation.disclaimer.includes("NOT a diagnosis"));
 
   console.log("\n[5] RBAC negative cases");
-  await expectThrow("nurse CANNOT finalize", () => finalizeReport(nurse, testId, {}, ctx), "Forbidden");
+  await expectThrow("support CANNOT mark sample collection complete", () => completeSampleCollection(support, testId, ctx), "Forbidden");
   await expectThrow("nurse CANNOT author diagnosis", () => saveDiagnosis(nurse, testId, { diagnosis: "x" }, ctx), "Forbidden");
   await expectThrow("support CANNOT create patient", () => createPatient(support, {
     mrn: `X-${stamp}`, name: "No", dob: "1990-01-01", gender: "MALE", hospitalId: hospital.id,
@@ -120,13 +120,12 @@ async function main() {
     email: `x${stamp}@t.co`, name: "x", role: "NURSE", password: "password1",
   }, ctx), "Forbidden");
 
-  console.log("\n[6] Diagnosis + finalize + lock");
-  await expectThrow("cannot finalize without diagnosis", () => finalizeReport(physician, testId, {}, ctx), "diagnosis is required");
+  console.log("\n[6] Sample completion (no diagnosis/physician sign-off required) + lock");
   await saveDiagnosis(physician, testId, { diagnosis: "Consistent with SIBO.", recommendation: "Rifaximin; review 6 weeks." }, ctx);
-  await finalizeReport(physician, testId, {}, ctx);
+  await completeSampleCollection(nurse, testId, ctx);
   detail = await getTestDetail(physician, testId, ctx);
   check("report FINALIZED", detail?.status === "FINALIZED");
-  check("signature captured", !!detail?.signatureName && !!detail?.signedAt);
+  check("finalizedAt captured", !!detail?.finalizedAt);
   await expectThrow("cannot edit samples once finalized", () => saveSamples(nurse, testId, [
     { sampleNumber: 1, timeMinutes: 0, h2Ppm: 1, ch4Ppm: 1, co2Percent: null, correctionFactor: null, symptoms: "", skipped: false, skippedReason: "" },
   ], ctx), "finalized");
@@ -134,16 +133,10 @@ async function main() {
     try { await saveSamples(nurse, testId, [], ctx); return false; } catch (e) { return e instanceof ReportLockedError; }
   })()));
 
-  console.log("\n[7] Reopen requires reason + audited");
-  await expectThrow("reopen rejects short reason", () => reopenReport(physician, testId, "no", ctx), "reason");
-  await reopenReport(physician, testId, "Correcting a mistyped sample value.", ctx);
-  detail = await getTestDetail(physician, testId, ctx);
-  check("reopened -> IN_PROGRESS", detail?.status === "IN_PROGRESS");
-  check("signature cleared on reopen", !detail?.signatureName && !detail?.signedAt);
+  console.log("\n[7] FINALIZED is terminal — no reopen path");
+  await expectThrow("cannot mark collection complete twice", () => completeSampleCollection(nurse, testId, ctx), "already finalized");
   const trail = await getTestAuditTrail(admin, testId);
-  const reopenEvt = trail.find((t) => t.action === "REOPEN");
-  check("REOPEN event recorded with reason", !!reopenEvt?.reason?.includes("mistyped"));
-  check("audit trail has CREATE/UPDATE/FINALIZE/REOPEN", ["CREATE","UPDATE","FINALIZE","REOPEN"].every((a) => trail.some((t) => t.action === a)));
+  check("audit trail has CREATE/UPDATE/STATUS_CHANGE", ["CREATE","UPDATE","STATUS_CHANGE"].every((a) => trail.some((t) => t.action === a)));
 
   console.log("\n[8] Exports");
   const pdf = await renderToBuffer(ReportDocument({ data: (await loadReportData(testId))! }));

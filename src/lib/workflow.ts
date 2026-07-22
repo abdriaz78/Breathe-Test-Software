@@ -11,14 +11,12 @@ import {
 // -----------------------------------------------------------------------------
 // Report status workflow.
 //
-//   DRAFT ──(samples entered)──▶ IN_PROGRESS ──(sign & finalize)──▶ FINALIZED
-//                                     ▲                                  │
-//                                     └──────────(reopen + reason)───────┘
+//   DRAFT ──(samples entered)──▶ IN_PROGRESS ──(samples marked complete)──▶ FINALIZED
 //
-// Finalizing locks all editing and captures the physician signature plus an
-// interpretation snapshot. Reopening REQUIRES a reason and is fully audited.
-// The clinical diagnosis/recommendation are authored by the physician here and
-// are never generated automatically.
+// Marking sample collection complete locks all editing and captures an
+// interpretation snapshot; no physician sign-off is required. FINALIZED is
+// terminal — there is no reopen path. The clinical diagnosis/recommendation
+// are physician-authored free-form notes and are never generated automatically.
 // -----------------------------------------------------------------------------
 
 export const diagnosisSchema = z.object({
@@ -26,10 +24,6 @@ export const diagnosisSchema = z.object({
   recommendation: z.string().trim().max(4000).optional().or(z.literal("")),
 });
 export type DiagnosisInput = z.infer<typeof diagnosisSchema>;
-
-export const reopenSchema = z.object({
-  reason: z.string().trim().min(5, "Please give a reason (min 5 characters).").max(1000),
-});
 
 type Ctx = { ipAddress: string | null; userAgent: string | null };
 
@@ -71,16 +65,14 @@ export async function saveDiagnosis(
   });
 }
 
-/** Sign & finalize. Persists any supplied diagnosis, captures the signature and
- * an interpretation snapshot, and locks the report. Requires a diagnosis. */
-export async function finalizeReport(
+/** Mark sample collection complete (nurse/tech action). Locks the report and
+ * captures an interpretation snapshot — no physician sign-off is required. */
+export async function completeSampleCollection(
   actor: CurrentUser,
   testId: string,
-  raw: DiagnosisInput,
   ctx: Ctx
 ): Promise<void> {
-  authorize(actor.role, "test:finalize");
-  const data = diagnosisSchema.parse(raw);
+  authorize(actor.role, "test:update");
 
   const test = await prisma.breathTest.findUnique({
     where: { id: testId },
@@ -91,13 +83,8 @@ export async function finalizeReport(
   });
   if (!test) throw new Error("Test not found.");
   if (test.status === "FINALIZED") throw new Error("Report is already finalized.");
-
-  const diagnosis = (data.diagnosis || test.diagnosis || "").trim();
-  if (!diagnosis) {
-    throw new Error("A diagnosis is required before finalizing the report.");
-  }
   if (test.samples.length === 0) {
-    throw new Error("Enter at least one sample before finalizing.");
+    throw new Error("Enter at least one sample before marking collection complete.");
   }
 
   const interpretation = computeInterpretation(
@@ -111,79 +98,26 @@ export async function finalizeReport(
   );
 
   const now = new Date();
-  const signatureName = `${actor.name}`.trim();
 
   await prisma.breathTest.update({
     where: { id: testId },
     data: {
-      diagnosis,
-      recommendation: (data.recommendation || test.recommendation || "").trim() || null,
       status: "FINALIZED",
-      signedById: actor.id,
-      signedAt: now,
-      signatureName,
       finalizedAt: now,
-      // A finalized report can't take more samples — drop it from the header
-      // timer list (src/lib/timers.ts).
       timerEndedAt: test.timerEndedAt ?? (test.timerStartedAt ? now : null),
       interpretationSnapshot: interpretation as unknown as object,
     },
   });
 
   await recordAudit({
-    action: "FINALIZE",
+    action: "STATUS_CHANGE",
     entity: "BreathTest",
     entityId: testId,
     breathTestId: testId,
     actorId: actor.id,
     actorRole: actor.role,
-    summary: `Finalized & signed by ${signatureName}`,
+    summary: "Marked sample collection complete",
     metadata: { previousStatus: test.status, flagCount: interpretation.flags.length },
-    ...ctx,
-  });
-}
-
-/** Reopen a finalized report. REQUIRES a reason (audited). Clears the signature
- * (it no longer applies) and returns the report to IN_PROGRESS. */
-export async function reopenReport(
-  actor: CurrentUser,
-  testId: string,
-  reason: string,
-  ctx: Ctx
-): Promise<void> {
-  authorize(actor.role, "test:reopen");
-  const { reason: cleanReason } = reopenSchema.parse({ reason });
-
-  const test = await prisma.breathTest.findUnique({
-    where: { id: testId },
-    select: { status: true, signatureName: true },
-  });
-  if (!test) throw new Error("Test not found.");
-  if (test.status !== "FINALIZED") {
-    throw new Error("Only a finalized report can be reopened.");
-  }
-
-  await prisma.breathTest.update({
-    where: { id: testId },
-    data: {
-      status: "IN_PROGRESS",
-      signedById: null,
-      signedAt: null,
-      signatureName: null,
-      finalizedAt: null,
-    },
-  });
-
-  await recordAudit({
-    action: "REOPEN",
-    entity: "BreathTest",
-    entityId: testId,
-    breathTestId: testId,
-    actorId: actor.id,
-    actorRole: actor.role,
-    summary: "Reopened a finalized report",
-    reason: cleanReason,
-    metadata: { previousSignature: test.signatureName },
     ...ctx,
   });
 }

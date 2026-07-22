@@ -16,6 +16,12 @@ const BRAND = "#0f766e";
 const INK = "#0f172a";
 const MUTED = "#64748b";
 const BORDER = "#e2e8f0";
+const POSITIVE = "#dc2626";
+const NEGATIVE = "#16a34a";
+const VERDICT_COLOR: Record<"Positive" | "Negative", string> = {
+  Positive: POSITIVE,
+  Negative: NEGATIVE,
+};
 
 const s = StyleSheet.create({
   page: { paddingTop: 24, paddingBottom: 40, paddingHorizontal: 40, fontSize: 9, color: INK, fontFamily: "Helvetica" },
@@ -28,8 +34,7 @@ const s = StyleSheet.create({
   hospLogo: { height: 44, maxWidth: 240, objectFit: "contain", marginBottom: 4 },
   hospName: { fontSize: 10, fontFamily: "Helvetica-Bold" },
   hospSub: { fontSize: 7.5, color: MUTED },
-  title: { fontSize: 13, fontFamily: "Helvetica-Bold", marginTop: 8, marginBottom: 1 },
-  statusPill: { alignSelf: "flex-start", marginTop: 2, marginBottom: 3, paddingVertical: 2, paddingHorizontal: 6, borderRadius: 3, fontSize: 7.5, fontFamily: "Helvetica-Bold" },
+  title: { fontSize: 13, fontFamily: "Helvetica-Bold", marginTop: 8, marginBottom: 8 },
   sectionTitle: { fontSize: 8.5, fontFamily: "Helvetica-Bold", color: MUTED, textTransform: "uppercase", letterSpacing: 0.5, marginTop: 6, marginBottom: 2 },
   grid: { flexDirection: "row", flexWrap: "wrap" },
   cell: { width: "50%", marginBottom: 2, paddingRight: 10 },
@@ -81,12 +86,6 @@ const s = StyleSheet.create({
   footerText: { fontSize: 7, color: MUTED },
 });
 
-const STATUS_PILL: Record<string, { bg: string; color: string; label: string }> = {
-  DRAFT: { bg: "#f1f5f9", color: "#475569", label: "DRAFT — not finalized" },
-  IN_PROGRESS: { bg: "#fef3c7", color: "#92400e", label: "IN PROGRESS — not finalized" },
-  FINALIZED: { bg: "#d1fae5", color: "#065f46", label: "FINALIZED" },
-};
-
 function fmtDate(d: Date | null | string): string {
   if (!d) return "—";
   const date = new Date(d);
@@ -110,8 +109,8 @@ function Field({ label, value, third }: { label: string; value: string; third?: 
 const GENDER: Record<string, string> = { MALE: "Male", FEMALE: "Female", OTHER: "Other", UNDISCLOSED: "Undisclosed" };
 
 export function ReportDocument({ data }: { data: ReportData }) {
-  const pill = STATUS_PILL[data.status];
   const chartSamples = data.samples.map((x) => ({
+    sampleNumber: x.sampleNumber,
     timeMinutes: x.timeMinutes,
     h2Ppm: x.h2Ppm,
     ch4Ppm: x.ch4Ppm,
@@ -146,7 +145,6 @@ export function ReportDocument({ data }: { data: ReportData }) {
         </View>
 
         <Text style={s.title}>{(data.test.substrate || data.test.typeName)} Breath Test Report</Text>
-        <Text style={[s.statusPill, { backgroundColor: pill.bg, color: pill.color }]}>{pill.label}</Text>
 
         {/* Patient identification — Patient / DOB / Gender / MRN, with the
             investigation date at top right, mirroring a standard lab printout. */}
@@ -204,8 +202,15 @@ export function ReportDocument({ data }: { data: ReportData }) {
             <Text style={s.sectionTitle}>Test result</Text>
             <View style={s.bulletLine}>
               <Text style={s.bulletMark}>-</Text>
-              <Text style={[s.bulletText, { fontFamily: "Helvetica-Bold" }]}>
-                {data.resultSummary.verdict}{" "}
+              <Text style={s.bulletText}>
+                <Text
+                  style={[
+                    s.bulletText,
+                    { fontFamily: "Helvetica-Bold", color: VERDICT_COLOR[data.resultSummary.verdict] },
+                  ]}
+                >
+                  {data.resultSummary.verdict}
+                </Text>{" "}
                 {(data.test.substrate || data.test.typeName).toLowerCase()} breath test result.
               </Text>
             </View>
@@ -318,7 +323,13 @@ export function ReportDocument({ data }: { data: ReportData }) {
             <Text style={s.bulletMark}>-</Text>
             <Text style={s.bulletText}>
               {data.diagnosis}
-              {data.resultSummary ? ` (${data.resultSummary.verdict} test)` : ""}
+              {data.resultSummary ? (
+                <Text style={{ color: VERDICT_COLOR[data.resultSummary.verdict], fontFamily: "Helvetica-Bold" }}>
+                  {` (${data.resultSummary.verdict} test)`}
+                </Text>
+              ) : (
+                ""
+              )}
             </Text>
           </View>
         ) : (

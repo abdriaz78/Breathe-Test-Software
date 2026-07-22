@@ -218,6 +218,7 @@ export default async function TestDetailPage({
 
       {test.samples.some((s) => !s.skipped) && (() => {
         const chartSamples = test.samples.map((s) => ({
+          sampleNumber: s.sampleNumber,
           timeMinutes: s.timeMinutes,
           h2Ppm: s.h2Ppm != null ? Number(s.h2Ppm) : null,
           ch4Ppm: s.ch4Ppm != null ? Number(s.ch4Ppm) : null,
@@ -302,12 +303,7 @@ export default async function TestDetailPage({
           status={test.status}
           diagnosis={test.diagnosis}
           recommendation={test.recommendation}
-          hasSamples={test.samples.length > 0}
           canDiagnose={can(user.role, "test:diagnose")}
-          canFinalize={can(user.role, "test:finalize")}
-          canReopen={can(user.role, "test:reopen")}
-          signatureName={test.signatureName}
-          signedAt={test.signedAt ? formatDateTime(test.signedAt) : null}
         />
       </section>
 

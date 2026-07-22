@@ -54,7 +54,7 @@ export type SampleRowInput = z.infer<typeof sampleRowSchema>;
 
 export class ReportLockedError extends Error {
   constructor() {
-    super("This report is finalized and locked. Reopen it before editing samples.");
+    super("This report is finalized and locked. Samples can no longer be edited.");
     this.name = "ReportLockedError";
   }
 }

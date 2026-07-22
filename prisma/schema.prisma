@@ -6,8 +6,8 @@
 //    plaintext PHI. MRN is additionally kept as a blind index hash (mrnHash) so
 //    we can look a patient up without decrypting every row.
 //  * Numeric breath measurements use Decimal for exactness (ppm, %, factors).
-//  * All mutations of clinical data are recorded in AuditLog. Report status
-//    transitions (esp. reopening a finalized report) require a reason.
+//  * All mutations of clinical data are recorded in AuditLog. FINALIZED is a
+//    terminal report status — there is no reopen path.
 // -----------------------------------------------------------------------------
 
 generator client {

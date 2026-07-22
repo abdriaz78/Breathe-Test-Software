@@ -2,7 +2,11 @@
 
 import { useActionState, useEffect, useState } from "react";
 import Link from "next/link";
-import { saveSamplesAction, type SamplesFormState } from "@/app/tests/[id]/samples/actions";
+import {
+  saveSamplesAction,
+  completeSampleCollectionAction,
+  type SamplesFormState,
+} from "@/app/tests/[id]/samples/actions";
 import { sampleTotal } from "@/lib/sample-math";
 import { formatClock12, parseClockInput } from "@/lib/time-format";
 import { BreathChart } from "@/components/BreathChart";
@@ -24,12 +28,12 @@ export interface EditableRow {
   skippedReason: string;
 }
 
-// Interval is left blank by default so the technician chooses their own cadence
-// (e.g. 20 or 30 min) rather than inheriting a suggested value.
+// Interval defaults to a 30-minute cadence (0, 30, 60, ...) based on sample
+// number; the technician can still override it per row.
 function emptyRow(sampleNumber: number): EditableRow {
   return {
     sampleNumber,
-    timeMinutes: "",
+    timeMinutes: sampleNumber * 30,
     clockTime: "",
     h2Ppm: "",
     ch4Ppm: "",
@@ -47,7 +51,6 @@ const numOrNull = (v: number | "") => (v === "" ? null : Number(v));
 // persist as empty samples.
 function isBlankRow(r: EditableRow): boolean {
   return (
-    r.timeMinutes === "" &&
     r.clockTime === "" &&
     r.h2Ppm === "" &&
     r.ch4Ppm === "" &&
@@ -61,7 +64,7 @@ function isBlankRow(r: EditableRow): boolean {
 // Start with the saved rows, padded up to DEFAULT_ROWS blank rows for entry.
 function buildInitialRows(saved: EditableRow[]): EditableRow[] {
   const rows = [...saved];
-  let next = (rows[rows.length - 1]?.sampleNumber ?? rows.length) + 1;
+  let next = rows.length === 0 ? 0 : rows[rows.length - 1].sampleNumber + 1;
   while (rows.length < DEFAULT_ROWS) {
     rows.push(emptyRow(next++));
   }
@@ -83,6 +86,10 @@ export function SampleTable({
     saveSamplesAction,
     {}
   );
+  const [completeState, completeFormAction, completing] = useActionState<SamplesFormState, FormData>(
+    completeSampleCollectionAction,
+    {}
+  );
 
   function update<K extends keyof EditableRow>(i: number, key: K, value: EditableRow[K]) {
     setRows((prev) => prev.map((r, idx) => (idx === i ? { ...r, [key]: value } : r)));
@@ -90,7 +97,7 @@ export function SampleTable({
 
   function addRow() {
     setRows((prev) => {
-      const nextNum = (prev[prev.length - 1]?.sampleNumber ?? 0) + 1;
+      const nextNum = prev.length === 0 ? 0 : prev[prev.length - 1].sampleNumber + 1;
       return [...prev, emptyRow(nextNum)];
     });
   }
@@ -100,6 +107,7 @@ export function SampleTable({
   }
 
   const chartSamples = rows.map((r) => ({
+    sampleNumber: r.sampleNumber,
     timeMinutes: r.timeMinutes === "" ? 0 : Number(r.timeMinutes),
     h2Ppm: numOrNull(r.h2Ppm),
     ch4Ppm: numOrNull(r.ch4Ppm),
@@ -122,12 +130,11 @@ export function SampleTable({
   );
 
   return (
-    <form action={formAction} className="space-y-4">
-      <input type="hidden" name="testId" value={testId} />
-      <input type="hidden" name="rows" value={serialized} />
-
-      {state.error && (
-        <div className="animate-fade-in-up rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{state.error}</div>
+    <div className="space-y-4">
+      {(state.error || completeState.error) && (
+        <div className="animate-fade-in-up rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+          {state.error || completeState.error}
+        </div>
       )}
 
       <div className="overflow-x-auto rounded-lg border border-clinical-border bg-white">
@@ -252,9 +259,31 @@ export function SampleTable({
         <Link href={`/tests/${testId}`} className="btn-secondary">
           Cancel
         </Link>
-        <button type="submit" className="btn-primary" disabled={pending}>
-          {pending ? "Saving…" : "Save samples"}
-        </button>
+        <form
+          action={completeFormAction}
+          onSubmit={(e) => {
+            if (
+              !confirm(
+                "Mark sample collection complete? This saves the current samples and locks the report for physician review."
+              )
+            ) {
+              e.preventDefault();
+            }
+          }}
+        >
+          <input type="hidden" name="testId" value={testId} />
+          <input type="hidden" name="rows" value={serialized} />
+          <button type="submit" className="btn-secondary" disabled={pending || completing}>
+            {completing ? "Completing…" : "Mark sample collection complete"}
+          </button>
+        </form>
+        <form action={formAction}>
+          <input type="hidden" name="testId" value={testId} />
+          <input type="hidden" name="rows" value={serialized} />
+          <button type="submit" className="btn-primary" disabled={pending || completing}>
+            {pending ? "Saving…" : "Save samples"}
+          </button>
+        </form>
       </div>
 
       {/* On-demand charts built from the current (unsaved) rows, so the entry
@@ -275,7 +304,7 @@ export function SampleTable({
           </div>
         </div>
       )}
-    </form>
+    </div>
   );
 }
 

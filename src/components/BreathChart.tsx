@@ -107,7 +107,7 @@ export function BreathChart({
           fill={textColor}
           textAnchor="middle"
         >
-          time ({g.xUnit})
+          {g.xUnit}
         </text>
 
         {/* Left axis */}
