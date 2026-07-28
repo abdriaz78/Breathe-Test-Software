@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(docker --version)",
+      "Bash(psql --version)",
+      "Bash(where pg_ctl)",
+      "PowerShell(Start-Service postgresql-x64-17)",
+      "PowerShell(Get-Service postgresql-x64-17)",
+      "PowerShell(net start postgresql-x64-17)",
+      "PowerShell(& \"C:\\\\Program Files\\\\PostgreSQL\\\\17\\\\bin\\\\pg_ctl.exe\" start -D \"C:\\\\Program Files\\\\PostgreSQL\\\\17\\\\data\" -l \"C:\\\\Users\\\\hp\\\\AppData\\\\Local\\\\Temp\\\\pg_log.txt\" -w)",
+      "Read(//c/Users/hp/AppData/Local/Temp/**)"
+    ]
+  }
+}
