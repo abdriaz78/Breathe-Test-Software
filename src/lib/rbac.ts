@@ -66,6 +66,13 @@ export function assertCan(role: Role | undefined | null, permission: Permission)
   }
 }
 
+/** NURSE and PHYSICIAN accounts are tied to one hospital and only ever see
+ * that hospital's patients/tests/reports/staff. ADMIN and SPECTER_SUPPORT
+ * are unscoped (cross-hospital) by design. */
+export function isHospitalScoped(role: Role | undefined | null): boolean {
+  return role === "NURSE" || role === "PHYSICIAN";
+}
+
 export const ROLE_LABELS: Record<Role, string> = {
   ADMIN: "Administrator",
   NURSE: "Nurse / Lab Technician",

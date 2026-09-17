@@ -2,7 +2,7 @@
 
 import { z } from "zod";
 import { auth } from "@/lib/auth";
-import { can } from "@/lib/rbac";
+import { can, isHospitalScoped } from "@/lib/rbac";
 import { prisma } from "@/lib/prisma";
 import { recordAudit } from "@/lib/audit";
 import { requestContext } from "@/lib/session";
@@ -41,9 +41,12 @@ export async function recordShareAction(
 
   const test = await prisma.breathTest.findUnique({
     where: { id: testId },
-    select: { patient: { select: { mrn: true } } },
+    select: { patient: { select: { mrn: true, hospitalId: true } } },
   });
   if (!test) return { error: "Test not found." };
+  if (isHospitalScoped(session.user.role) && test.patient.hospitalId !== session.user.hospitalId) {
+    return { error: "Test not found." };
+  }
 
   const ctx = await requestContext();
   await recordAudit({

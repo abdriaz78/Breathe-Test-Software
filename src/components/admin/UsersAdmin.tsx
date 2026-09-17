@@ -1,13 +1,19 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import type { Role } from "@prisma/client";
-import { ROLE_LABELS } from "@/lib/rbac";
+import { ROLE_LABELS, isHospitalScoped } from "@/lib/rbac";
 import {
-  createUserAction, toggleUserActiveAction, changeRoleAction, type UserFormState,
+  createUserAction, toggleUserActiveAction, changeRoleAction, changeHospitalAction,
+  type UserFormState,
 } from "@/app/admin/users/actions";
 
 const ROLES: Role[] = ["ADMIN", "NURSE", "PHYSICIAN", "SPECTER_SUPPORT"];
+
+export interface HospitalOption {
+  id: string;
+  name: string;
+}
 
 export interface AdminUserRow {
   id: string;
@@ -17,13 +23,17 @@ export interface AdminUserRow {
   title: string | null;
   isActive: boolean;
   lastLoginAt: Date | null;
+  hospitalId: string | null;
+  hospitalName: string | null;
 }
 
 export function UsersAdmin({
   users,
+  hospitals,
   currentUserId,
 }: {
   users: AdminUserRow[];
+  hospitals: HospitalOption[];
   currentUserId: string;
 }) {
   const [state, formAction, pending] = useActionState<UserFormState, FormData>(
@@ -31,6 +41,8 @@ export function UsersAdmin({
     {}
   );
   const err = (f: string) => state.fieldErrors?.[f];
+  const [role, setRole] = useState<Role>("NURSE");
+  const hospitalRequired = isHospitalScoped(role);
 
   return (
     <div className="space-y-8">
@@ -48,9 +60,40 @@ export function UsersAdmin({
             <F label="Email" name="email" type="email" error={err("email")} required />
             <div>
               <label className="label" htmlFor="role">Role <span className="text-red-500">*</span></label>
-              <select id="role" name="role" className="input" defaultValue="NURSE">
+              <select
+                id="role"
+                name="role"
+                className="input"
+                value={role}
+                onChange={(e) => setRole(e.target.value as Role)}
+              >
                 {ROLES.map((r) => <option key={r} value={r}>{ROLE_LABELS[r]}</option>)}
               </select>
+            </div>
+            <div>
+              <label className="label" htmlFor="hospitalId">
+                Hospital {hospitalRequired && <span className="text-red-500">*</span>}
+              </label>
+              <select
+                id="hospitalId"
+                name="hospitalId"
+                className="input"
+                defaultValue=""
+                disabled={!hospitalRequired}
+              >
+                <option value="" disabled={hospitalRequired}>
+                  {hospitalRequired ? "Select…" : "N/A — cross-hospital access"}
+                </option>
+                {hospitals.map((h) => (
+                  <option key={h.id} value={h.id}>{h.name}</option>
+                ))}
+              </select>
+              {err("hospitalId") && <p className="mt-1 text-xs text-red-600">{err("hospitalId")}</p>}
+              {hospitalRequired && (
+                <p className="mt-1 text-xs text-slate-400">
+                  Nurses and Physicians only see this hospital&apos;s data.
+                </p>
+              )}
             </div>
             <F label="Title" name="title" error={err("title")} placeholder="Dr. / RN / Lab Tech" />
             <F label="License no." name="licenseNo" error={err("licenseNo")} />
@@ -71,6 +114,7 @@ export function UsersAdmin({
                 <th className="px-4 py-3">Name</th>
                 <th className="px-4 py-3">Email</th>
                 <th className="px-4 py-3">Role</th>
+                <th className="px-4 py-3">Hospital</th>
                 <th className="px-4 py-3">Status</th>
                 <th className="px-4 py-3">Last login</th>
                 <th className="px-4 py-3" />
@@ -96,6 +140,26 @@ export function UsersAdmin({
                         {ROLES.map((r) => <option key={r} value={r}>{ROLE_LABELS[r]}</option>)}
                       </select>
                     </form>
+                  </td>
+                  <td className="px-4 py-3">
+                    {isHospitalScoped(u.role) ? (
+                      <form action={changeHospitalAction} className="inline">
+                        <input type="hidden" name="userId" value={u.id} />
+                        <select
+                          name="hospitalId"
+                          defaultValue={u.hospitalId ?? ""}
+                          className="rounded border border-clinical-border bg-white px-2 py-1 text-xs"
+                          onChange={(e) => e.currentTarget.form?.requestSubmit()}
+                        >
+                          <option value="" disabled>Select…</option>
+                          {hospitals.map((h) => (
+                            <option key={h.id} value={h.id}>{h.name}</option>
+                          ))}
+                        </select>
+                      </form>
+                    ) : (
+                      <span className="text-slate-400">{u.hospitalName ?? "All hospitals"}</span>
+                    )}
                   </td>
                   <td className="px-4 py-3">
                     <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${u.isActive ? "bg-emerald-100 text-emerald-800" : "bg-slate-200 text-slate-600"}`}>

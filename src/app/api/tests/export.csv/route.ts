@@ -33,6 +33,7 @@ export async function GET(req: Request) {
     name: session.user.name ?? "",
     email: session.user.email ?? "",
     role: session.user.role,
+    hospitalId: session.user.hospitalId,
   };
   const rows = await listTestsForExport(actor, { status });
 

@@ -31,19 +31,20 @@ async function main() {
     include: { departments: true },
   });
 
-  // Users — one per role
-  const users: Array<{ email: string; name: string; role: Role; title?: string }> = [
+  // Users — one per role. Nurse/Physician are scoped to the demo hospital;
+  // Admin/Support remain cross-hospital.
+  const users: Array<{ email: string; name: string; role: Role; title?: string; hospitalId?: string }> = [
     { email: "admin@specter.health", name: "System Admin", role: Role.ADMIN },
-    { email: "nurse@specter.health", name: "Nadia Nurse", role: Role.NURSE, title: "RN" },
-    { email: "physician@specter.health", name: "Dr. Omar Farouk", role: Role.PHYSICIAN, title: "Dr." },
+    { email: "nurse@specter.health", name: "Nadia Nurse", role: Role.NURSE, title: "RN", hospitalId: hospital.id },
+    { email: "physician@specter.health", name: "Dr. Omar Farouk", role: Role.PHYSICIAN, title: "Dr.", hospitalId: hospital.id },
     { email: "support@specter.health", name: "Specter Support", role: Role.SPECTER_SUPPORT },
   ];
 
   for (const u of users) {
     await prisma.user.upsert({
       where: { email: u.email },
-      update: { role: u.role, name: u.name, title: u.title },
-      create: { email: u.email, name: u.name, role: u.role, title: u.title, passwordHash },
+      update: { role: u.role, name: u.name, title: u.title, hospitalId: u.hospitalId ?? null },
+      create: { email: u.email, name: u.name, role: u.role, title: u.title, hospitalId: u.hospitalId ?? null, passwordHash },
     });
   }
 

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { renderToBuffer } from "@react-pdf/renderer";
 import { auth } from "@/lib/auth";
-import { can } from "@/lib/rbac";
+import { can, isHospitalScoped } from "@/lib/rbac";
 import { loadReportData } from "@/lib/report";
 import { ReportDocument } from "@/lib/pdf/ReportDocument";
 import { recordAudit } from "@/lib/audit";
@@ -25,6 +25,9 @@ export async function GET(
   const { id } = await params;
   const data = await loadReportData(id);
   if (!data) {
+    return NextResponse.json({ error: "Report not found" }, { status: 404 });
+  }
+  if (isHospitalScoped(session.user.role) && data.hospitalId !== session.user.hospitalId) {
     return NextResponse.json({ error: "Report not found" }, { status: 404 });
   }
 

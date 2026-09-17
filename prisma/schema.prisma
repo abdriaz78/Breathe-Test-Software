@@ -29,18 +29,24 @@ enum Role {
 }
 
 model User {
-  id           String   @id @default(cuid())
-  email        String   @unique
+  id           String    @id @default(cuid())
+  email        String    @unique
   name         String
   passwordHash String
-  role         Role     @default(NURSE)
+  role         Role      @default(NURSE)
   // Optional professional identifiers shown on reports / signatures
   title        String? // e.g. "Dr.", "RN", "Lab Tech"
   licenseNo    String?
-  isActive     Boolean  @default(true)
+  isActive     Boolean   @default(true)
   lastLoginAt  DateTime?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  // Hospital the account belongs to. Required (enforced in the app layer) for
+  // NURSE and PHYSICIAN — their access to patients/tests/reports is scoped to
+  // this hospital. Left null for ADMIN/SPECTER_SUPPORT, who see all hospitals.
+  hospital   Hospital? @relation(fields: [hospitalId], references: [id])
+  hospitalId String?
 
   // Relations
   createdTests    BreathTest[] @relation("TestCreatedBy")
@@ -49,6 +55,7 @@ model User {
   auditLogs       AuditLog[]
 
   @@index([role])
+  @@index([hospitalId])
 }
 
 // --------------------------- Org structure -----------------------------------
@@ -66,6 +73,7 @@ model Hospital {
   updatedAt   DateTime     @updatedAt
   departments Department[]
   patients    Patient[]
+  users       User[]
 
   @@index([name])
 }
@@ -93,25 +101,25 @@ enum Gender {
 }
 
 model Patient {
-  id  String @id @default(cuid())
+  id      String @id @default(cuid())
   // MRN: shown to clinicians. mrnHash is a deterministic HMAC used for lookups
   // so we don't have to decrypt PII to find a patient by MRN.
   mrn     String
   mrnHash String @unique
 
   // Encrypted PII (AES-256-GCM ciphertext, base64). Decrypted only in app layer.
-  nameEnc              String
-  dobEnc               String // date of birth
+  nameEnc               String
+  dobEnc                String // date of birth
   referringPhysicianEnc String?
 
-  gender    Gender
-  weightKg  Decimal? @db.Decimal(6, 2)
+  gender   Gender
+  weightKg Decimal? @db.Decimal(6, 2)
 
-  hospital     Hospital     @relation(fields: [hospitalId], references: [id])
-  hospitalId   String
-  createdAt    DateTime     @default(now())
-  updatedAt    DateTime     @updatedAt
-  tests        BreathTest[]
+  hospital   Hospital     @relation(fields: [hospitalId], references: [id])
+  hospitalId String
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+  tests      BreathTest[]
 
   @@index([hospitalId])
 }
@@ -122,19 +130,19 @@ model Patient {
 // custom types. Thresholds power interpretation-support flags ONLY — never an
 // automatic diagnosis.
 model TestType {
-  id            String   @id @default(cuid())
-  key           String   @unique // e.g. "SIBO_GLUCOSE"
-  name          String // e.g. "SIBO — Glucose"
-  defaultSubstrate String?
-  defaultDose      String? // e.g. "75 g glucose in 250 mL water"
-  isSystem      Boolean  @default(false) // true for the 4 built-ins; can't delete
-  isActive      Boolean  @default(true)
+  id                  String       @id @default(cuid())
+  key                 String       @unique // e.g. "SIBO_GLUCOSE"
+  name                String // e.g. "SIBO — Glucose"
+  defaultSubstrate    String?
+  defaultDose         String? // e.g. "75 g glucose in 250 mL water"
+  isSystem            Boolean      @default(false) // true for the 4 built-ins; can't delete
+  isActive            Boolean      @default(true)
   // Interpretation-support rules (JSON). Evaluated in the app to raise flags,
   // e.g. { "h2RiseFromBaselinePpm": 20, "ch4AbsolutePpm": 10 }.
   interpretationRules Json?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  tests         BreathTest[]
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime     @updatedAt
+  tests               BreathTest[]
 
   @@index([isActive])
 }
@@ -173,8 +181,8 @@ model BreathTest {
   samples Sample[]
 
   // Clinical outcome — authored by physician, NOT auto-generated.
-  diagnosis      String? // physician's final diagnosis text
-  recommendation String?
+  diagnosis              String? // physician's final diagnosis text
+  recommendation         String?
   interpretationSnapshot Json? // computed support flags captured at finalize time
 
   // Workflow / status
@@ -190,17 +198,17 @@ model BreathTest {
   timerEndedAt      DateTime? // all samples acked, or the report was finalized
 
   // People
-  createdBy    User   @relation("TestCreatedBy", fields: [createdById], references: [id])
+  createdBy    User    @relation("TestCreatedBy", fields: [createdById], references: [id])
   createdById  String
-  technician   User?  @relation("TestTechnician", fields: [technicianId], references: [id])
+  technician   User?   @relation("TestTechnician", fields: [technicianId], references: [id])
   technicianId String?
 
   // Sign-off
-  signedBy     User?     @relation("TestSignedBy", fields: [signedById], references: [id])
-  signedById   String?
-  signedAt     DateTime?
+  signedBy      User?     @relation("TestSignedBy", fields: [signedById], references: [id])
+  signedById    String?
+  signedAt      DateTime?
   signatureName String? // captured display name at signing time
-  finalizedAt  DateTime?
+  finalizedAt   DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -224,8 +232,8 @@ model Sample {
   // Wall-clock collection time, stored in standard 24h "HH:mm"; displayed 12h (e.g. 1:30 PM).
   clockTime    String?
 
-  h2Ppm  Decimal? @db.Decimal(8, 2)
-  ch4Ppm Decimal? @db.Decimal(8, 2)
+  h2Ppm            Decimal? @db.Decimal(8, 2)
+  ch4Ppm           Decimal? @db.Decimal(8, 2)
   // h2PlusCh4 is derived (h2Ppm + ch4Ppm) in the app layer, not stored, to avoid
   // drift. CO2 and correction factor are entered per QuinTron workflow.
   co2Percent       Decimal? @db.Decimal(5, 2)
@@ -233,7 +241,7 @@ model Sample {
 
   symptoms String?
 
-  skipped      Boolean @default(false)
+  skipped       Boolean @default(false)
   skippedReason String?
 
   createdAt DateTime @default(now())
@@ -260,17 +268,17 @@ enum AuditAction {
 }
 
 model AuditLog {
-  id        String      @id @default(cuid())
-  action    AuditAction
-  entity    String // e.g. "BreathTest", "Patient", "User"
-  entityId  String?
+  id       String      @id @default(cuid())
+  action   AuditAction
+  entity   String // e.g. "BreathTest", "Patient", "User"
+  entityId String?
   // Human-readable summary + optional reason (required for REOPEN).
-  summary   String?
-  reason    String?
+  summary  String?
+  reason   String?
   // Snapshot of relevant before/after values (no plaintext PHI stored here).
-  metadata  Json?
+  metadata Json?
 
-  actor     User?    @relation(fields: [actorId], references: [id])
+  actor     User?   @relation(fields: [actorId], references: [id])
   actorId   String?
   actorRole Role?
   ipAddress String?

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { can } from "@/lib/rbac";
+import { can, isHospitalScoped } from "@/lib/rbac";
 import { loadReportData } from "@/lib/report";
 import { sampleTotal } from "@/lib/sample-math";
 import { toCsv, csvResponse } from "@/lib/csv";
@@ -26,6 +26,9 @@ export async function GET(
   const { id } = await params;
   const data = await loadReportData(id);
   if (!data) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  if (isHospitalScoped(session.user.role) && data.hospitalId !== session.user.hospitalId) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
 
   const headers = [
     "Test ID", "MRN", "Patient", "Test Type", "Collection Date",
