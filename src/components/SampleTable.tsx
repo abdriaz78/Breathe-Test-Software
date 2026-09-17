@@ -11,6 +11,7 @@ import { sampleTotal } from "@/lib/sample-math";
 import { formatClock12, parseClockInput } from "@/lib/time-format";
 import { BreathChart } from "@/components/BreathChart";
 import { CH4_TRIGGER_PPM } from "@/lib/chart-geometry";
+import { summarizeCh4Result } from "@/lib/interpretation";
 
 // Number of blank rows shown by default when entering a fresh test.
 const DEFAULT_ROWS = 6;
@@ -113,6 +114,7 @@ export function SampleTable({
     ch4Ppm: numOrNull(r.ch4Ppm),
     skipped: r.skipped,
   }));
+  const ch4Result = summarizeCh4Result(chartSamples, CH4_TRIGGER_PPM);
 
   const serialized = JSON.stringify(
     rows.filter((r) => !isBlankRow(r)).map((r) => ({
@@ -297,9 +299,20 @@ export function SampleTable({
             <BreathChart samples={chartSamples} series={["h2"]} h2RiseThreshold={h2RiseThreshold} />
           </div>
           <div className="rounded-lg border border-clinical-border bg-white p-4">
-            <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-400">
-              CH₄ over time
-            </h3>
+            <div className="mb-3 flex items-center justify-between">
+              <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-400">
+                CH₄ over time
+              </h3>
+              {ch4Result && (
+                <span
+                  className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
+                    ch4Result.anyMet ? "bg-amber-100 text-amber-800" : "bg-slate-100 text-slate-600"
+                  }`}
+                >
+                  {ch4Result.verdict}
+                </span>
+              )}
+            </div>
             <BreathChart samples={chartSamples} series={["ch4"]} ch4Threshold={CH4_TRIGGER_PPM} />
           </div>
         </div>

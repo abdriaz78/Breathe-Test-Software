@@ -22,6 +22,10 @@ const VERDICT_COLOR: Record<"Positive" | "Negative", string> = {
   Positive: POSITIVE,
   Negative: NEGATIVE,
 };
+const CH4_VERDICT_COLOR: Record<"IMO Positive" | "IMO Negative", string> = {
+  "IMO Positive": POSITIVE,
+  "IMO Negative": NEGATIVE,
+};
 
 const s = StyleSheet.create({
   page: { paddingTop: 24, paddingBottom: 40, paddingHorizontal: 40, fontSize: 9, color: INK, fontFamily: "Helvetica" },
@@ -243,7 +247,20 @@ export function ReportDocument({ data }: { data: ReportData }) {
               />
             </View>
             <View style={s.chartCol}>
-              <Text style={s.sectionTitle}>CH4 over time</Text>
+              <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+                <Text style={s.sectionTitle}>CH4 over time</Text>
+                {data.ch4ResultSummary && (
+                  <Text
+                    style={{
+                      fontSize: 8.5,
+                      fontFamily: "Helvetica-Bold",
+                      color: CH4_VERDICT_COLOR[data.ch4ResultSummary.verdict],
+                    }}
+                  >
+                    {data.ch4ResultSummary.verdict}
+                  </Text>
+                )}
+              </View>
               <ReportChart
                 samples={chartSamples}
                 series={["ch4"]}

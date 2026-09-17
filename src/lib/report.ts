@@ -1,12 +1,15 @@
 import type { ReportStatus } from "@prisma/client";
 import { prisma } from "./prisma";
 import { decrypt } from "./crypto";
+import { CH4_TRIGGER_PPM } from "./chart-geometry";
 import {
   computeInterpretation,
   summarizeResult,
+  summarizeCh4Result,
   type InterpretationResult,
   type InterpretationRules,
   type ResultSummary,
+  type Ch4ResultSummary,
 } from "./interpretation";
 
 // -----------------------------------------------------------------------------
@@ -63,6 +66,7 @@ export interface ReportData {
   symptomsDuringTest: string | null;
   interpretation: InterpretationResult;
   resultSummary: ResultSummary | null;
+  ch4ResultSummary: Ch4ResultSummary | null;
   /** H2 rise-from-baseline threshold (ppm) for the chart's red trigger line. */
   h2RiseThreshold: number | null;
   diagnosis: string | null;
@@ -126,6 +130,15 @@ export async function loadReportData(id: string): Promise<ReportData | null> {
     })),
     rules
   );
+  const ch4ResultSummary = summarizeCh4Result(
+    samples.map((s) => ({
+      timeMinutes: s.timeMinutes,
+      h2Ppm: s.h2Ppm,
+      ch4Ppm: s.ch4Ppm,
+      skipped: s.skipped,
+    })),
+    CH4_TRIGGER_PPM
+  );
 
   const methodText = t.dose
     ? `Patient received as the test substrate ${t.dose}. Breath was collected after specified time intervals.`
@@ -183,6 +196,7 @@ export async function loadReportData(id: string): Promise<ReportData | null> {
     symptomsDuringTest,
     interpretation,
     resultSummary,
+    ch4ResultSummary,
     h2RiseThreshold: rules?.h2RiseFromBaselinePpm ?? null,
     diagnosis: t.diagnosis,
     recommendation: t.recommendation,

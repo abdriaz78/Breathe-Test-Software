@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { requirePermission, requestContext } from "@/lib/session";
 import { getTestDetail, STATUS_LABEL, STATUS_STYLE } from "@/lib/tests";
 import { getTestAuditTrail } from "@/lib/workflow";
-import { summarizeResult, type InterpretationRules } from "@/lib/interpretation";
+import { summarizeResult, summarizeCh4Result, type InterpretationRules } from "@/lib/interpretation";
 import { can } from "@/lib/rbac";
 import { AppShell } from "@/components/AppShell";
 import { SampleReadout } from "@/components/SampleReadout";
@@ -61,6 +61,15 @@ export default async function TestDetailPage({
       skipped: s.skipped,
     })),
     test.testType.interpretationRules as InterpretationRules | null
+  );
+  const ch4Result = summarizeCh4Result(
+    test.samples.map((s) => ({
+      timeMinutes: s.timeMinutes,
+      h2Ppm: s.h2Ppm != null ? Number(s.h2Ppm) : null,
+      ch4Ppm: s.ch4Ppm != null ? Number(s.ch4Ppm) : null,
+      skipped: s.skipped,
+    })),
+    CH4_TRIGGER_PPM
   );
 
   const showAudit = can(user.role, "audit:read");
@@ -236,9 +245,20 @@ export default async function TestDetailPage({
               <BreathChart samples={chartSamples} series={["h2"]} h2RiseThreshold={h2Threshold} />
             </section>
             <section className="card">
-              <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-slate-400">
-                CH₄ over time
-              </h2>
+              <div className="mb-4 flex items-center justify-between">
+                <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-400">
+                  CH₄ over time
+                </h2>
+                {ch4Result && (
+                  <span
+                    className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
+                      ch4Result.anyMet ? "bg-amber-100 text-amber-800" : "bg-slate-100 text-slate-600"
+                    }`}
+                  >
+                    {ch4Result.verdict}
+                  </span>
+                )}
+              </div>
               <BreathChart samples={chartSamples} series={["ch4"]} ch4Threshold={CH4_TRIGGER_PPM} />
             </section>
           </div>

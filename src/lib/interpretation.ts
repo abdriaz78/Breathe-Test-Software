@@ -152,6 +152,41 @@ function fmtDuration(totalMinutes: number): string {
   return [hrPart, minPart].filter(Boolean).join(", ");
 }
 
+// -----------------------------------------------------------------------------
+// CH4 / IMO (Intestinal Methanogen Overgrowth) verdict.
+//
+// Unlike the H2 verdict, this is a single fixed absolute threshold (no
+// baseline offset) — it mirrors the CH4 trigger line drawn on the chart
+// (see CH4_TRIGGER_PPM in lib/chart-geometry.ts): a peak CH4 reading at or
+// above the threshold at ANY point in the collection is IMO Positive.
+// -----------------------------------------------------------------------------
+
+export interface Ch4ResultSummary {
+  verdict: "IMO Positive" | "IMO Negative";
+  /** e.g. "CH₄ peak 14 PPM (threshold 12 PPM)." */
+  statsLine: string;
+  /** True when the verdict is Positive — for UI emphasis only. */
+  anyMet: boolean;
+}
+
+export function summarizeCh4Result(
+  samples: SampleForInterpretation[],
+  thresholdPpm: number
+): Ch4ResultSummary | null {
+  const active = samples.filter((s) => !s.skipped);
+  const ch4 = active.map((s) => s.ch4Ppm).filter((v): v is number => v != null);
+  if (!ch4.length) return null;
+
+  const peak = Math.max(...ch4);
+  const positive = peak >= thresholdPpm;
+
+  return {
+    verdict: positive ? "IMO Positive" : "IMO Negative",
+    statsLine: `CH₄ peak ${peak.toFixed(0)} PPM (threshold ${thresholdPpm} PPM).`,
+    anyMet: positive,
+  };
+}
+
 export function summarizeResult(
   samples: SampleForInterpretation[],
   rules: InterpretationRules | null | undefined
