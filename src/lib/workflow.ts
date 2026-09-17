@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { prisma } from "./prisma";
 import { recordAudit } from "./audit";
-import { authorize, type CurrentUser } from "./session";
+import { authorize, isOutsideScope, type CurrentUser } from "./session";
 import { ReportLockedError } from "./samples";
 import {
   computeInterpretation,
@@ -40,9 +40,10 @@ export async function saveDiagnosis(
 
   const test = await prisma.breathTest.findUnique({
     where: { id: testId },
-    select: { status: true },
+    select: { status: true, patient: { select: { hospitalId: true } } },
   });
   if (!test) throw new Error("Test not found.");
+  if (isOutsideScope(actor, test.patient.hospitalId)) throw new Error("Test not found.");
   if (test.status === "FINALIZED") throw new ReportLockedError();
 
   await prisma.breathTest.update({
@@ -79,9 +80,11 @@ export async function completeSampleCollection(
     include: {
       testType: { select: { interpretationRules: true } },
       samples: { orderBy: { sampleNumber: "asc" } },
+      patient: { select: { hospitalId: true } },
     },
   });
   if (!test) throw new Error("Test not found.");
+  if (isOutsideScope(actor, test.patient.hospitalId)) throw new Error("Test not found.");
   if (test.status === "FINALIZED") throw new Error("Report is already finalized.");
   if (test.samples.length === 0) {
     throw new Error("Enter at least one sample before marking collection complete.");

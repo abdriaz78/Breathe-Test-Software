@@ -21,7 +21,7 @@ async function warmup() {
 
 async function asUser(email: string): Promise<CurrentUser> {
   const u = await prisma.user.findUniqueOrThrow({ where: { email } });
-  return { id: u.id, name: u.name, email: u.email, role: u.role };
+  return { id: u.id, name: u.name, email: u.email, role: u.role, hospitalId: u.hospitalId };
 }
 
 function rows(vals: Array<[number, number, number, number]>): SampleRowInput[] {

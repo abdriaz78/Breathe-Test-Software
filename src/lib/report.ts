@@ -30,6 +30,7 @@ export interface ReportSample {
 export interface ReportData {
   id: string;
   status: ReportStatus;
+  hospitalId: string;
   hospitalName: string;
   hospitalCity: string | null;
   hospitalLogoUrl: string | null;
@@ -154,6 +155,7 @@ export async function loadReportData(id: string): Promise<ReportData | null> {
   return {
     id: t.id,
     status: t.status,
+    hospitalId: t.patient.hospitalId,
     hospitalName: t.patient.hospital.name,
     hospitalCity: t.patient.hospital.city,
     hospitalLogoUrl: t.patient.hospital.logoUrl,

@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import type { Role } from "@prisma/client";
 import { requireUser, requestContext } from "@/lib/session";
 import {
-  createUser, createUserSchema, setUserActive, changeUserRole,
+  createUser, createUserSchema, setUserActive, changeUserRole, changeUserHospital,
 } from "@/lib/admin-users";
 
 export interface UserFormState {
@@ -25,6 +25,7 @@ export async function createUserAction(
     title: String(formData.get("title") ?? ""),
     licenseNo: String(formData.get("licenseNo") ?? ""),
     password: String(formData.get("password") ?? ""),
+    hospitalId: String(formData.get("hospitalId") ?? ""),
   };
   const parsed = createUserSchema.safeParse(raw);
   if (!parsed.success) {
@@ -59,5 +60,14 @@ export async function changeRoleAction(formData: FormData): Promise<void> {
   const role = String(formData.get("role") ?? "") as Role;
   const ctx = await requestContext();
   await changeUserRole(actor, userId, role, ctx);
+  revalidatePath("/admin/users");
+}
+
+export async function changeHospitalAction(formData: FormData): Promise<void> {
+  const actor = await requireUser();
+  const userId = String(formData.get("userId") ?? "");
+  const hospitalId = String(formData.get("hospitalId") ?? "");
+  const ctx = await requestContext();
+  await changeUserHospital(actor, userId, hospitalId || null, ctx);
   revalidatePath("/admin/users");
 }

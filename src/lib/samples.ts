@@ -2,7 +2,7 @@ import { z } from "zod";
 import { prisma } from "./prisma";
 import { recordAudit } from "./audit";
 import type { CurrentUser } from "./session";
-import { authorize } from "./session";
+import { authorize, isOutsideScope } from "./session";
 
 export { sampleTotal } from "./sample-math";
 
@@ -69,9 +69,10 @@ export async function saveSamples(
 
   const test = await prisma.breathTest.findUnique({
     where: { id: testId },
-    select: { id: true, status: true },
+    select: { id: true, status: true, patient: { select: { hospitalId: true } } },
   });
   if (!test) throw new Error("Test not found.");
+  if (isOutsideScope(actor, test.patient.hospitalId)) throw new Error("Test not found.");
   if (test.status === "FINALIZED") throw new ReportLockedError();
 
   const parsed = saveSamplesSchema.parse({ rows });

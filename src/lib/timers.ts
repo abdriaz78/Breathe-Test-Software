@@ -4,7 +4,7 @@ import { prisma } from "./prisma";
 import { decrypt } from "./crypto";
 import { recordAudit } from "./audit";
 import type { CurrentUser } from "./session";
-import { authorize } from "./session";
+import { authorize, hospitalScope, isOutsideScope } from "./session";
 import { ReportLockedError } from "./samples";
 
 // -----------------------------------------------------------------------------
@@ -76,6 +76,7 @@ export async function listActiveTimers(actor: CurrentUser): Promise<ActiveTimer[
       status: { not: "FINALIZED" },
       timerStartedAt: { not: null },
       timerEndedAt: null,
+      patient: hospitalScope(actor),
     },
     orderBy: { timerStartedAt: "asc" },
     take: MAX_ACTIVE_TIMERS,
@@ -132,9 +133,10 @@ export async function startTimer(
 
   const test = await prisma.breathTest.findUnique({
     where: { id: testId },
-    select: { status: true, timerStartedAt: true, timerEndedAt: true },
+    select: { status: true, timerStartedAt: true, timerEndedAt: true, patient: { select: { hospitalId: true } } },
   });
   if (!test) throw new Error("Test not found.");
+  if (isOutsideScope(actor, test.patient.hospitalId)) throw new Error("Test not found.");
   if (test.status === "FINALIZED") throw new ReportLockedError();
   if (test.timerStartedAt && !test.timerEndedAt) {
     throw new Error("A collection timer is already running for this test.");
@@ -191,9 +193,11 @@ export async function acknowledgeSample(
       timerTotalSamples: true,
       timerAckedIndex: true,
       timerEndedAt: true,
+      patient: { select: { hospitalId: true } },
     },
   });
   if (!test) throw new Error("Test not found.");
+  if (isOutsideScope(actor, test.patient.hospitalId)) throw new Error("Test not found.");
   if (test.status === "FINALIZED") throw new ReportLockedError();
   if (!test.timerStartedAt || test.timerEndedAt) {
     throw new Error("No collection timer is running for this test.");

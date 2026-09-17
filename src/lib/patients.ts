@@ -4,7 +4,8 @@ import { prisma } from "./prisma";
 import { encrypt, decrypt, blindIndex } from "./crypto";
 import { recordAudit } from "./audit";
 import type { CurrentUser } from "./session";
-import { authorize } from "./session";
+import { authorize, hospitalScope, isOutsideScope } from "./session";
+import { isHospitalScoped } from "./rbac";
 
 // -----------------------------------------------------------------------------
 // Patient data-access layer. All PHI is encrypted on write and decrypted only
@@ -63,6 +64,12 @@ export async function createPatient(
   authorize(actor.role, "patient:create");
   const data = patientInputSchema.parse(raw);
 
+  // A hospital-scoped user (Nurse/Physician) can only register patients under
+  // their own hospital, regardless of what the submitted form claims.
+  if (isHospitalScoped(actor.role) && data.hospitalId !== actor.hospitalId) {
+    throw new Error("You can only register patients for your own hospital.");
+  }
+
   const mrnHash = blindIndex(data.mrn);
   const existing = await prisma.patient.findUnique({ where: { mrnHash } });
   if (existing) {
@@ -105,9 +112,10 @@ export async function listPatients(
 ): Promise<Array<Pick<PatientView, "id" | "mrn" | "name" | "gender" | "hospitalName">>> {
   authorize(actor.role, "patient:read");
 
-  const where = opts.mrn?.trim()
-    ? { mrnHash: blindIndex(opts.mrn.trim()) }
-    : {};
+  const where = {
+    ...(opts.mrn?.trim() ? { mrnHash: blindIndex(opts.mrn.trim()) } : {}),
+    ...hospitalScope(actor),
+  };
 
   const rows = await prisma.patient.findMany({
     where,
@@ -137,6 +145,7 @@ export async function getPatient(
     include: { hospital: { select: { name: true } } },
   });
   if (!p) return null;
+  if (isOutsideScope(actor, p.hospitalId)) return null;
 
   await recordAudit({
     action: "VIEW_PHI",

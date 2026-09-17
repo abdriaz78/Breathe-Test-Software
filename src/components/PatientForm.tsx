@@ -20,9 +20,13 @@ const OTHER_PHYSICIAN = "__other__";
 export function PatientForm({
   hospitals,
   physicians,
+  lockedHospitalId,
 }: {
   hospitals: HospitalOption[];
   physicians: PhysicianOption[];
+  /** When set (Nurse/Physician accounts), the hospital is fixed to this id and
+   * shown read-only instead of a picker. */
+  lockedHospitalId?: string;
 }) {
   const [state, formAction, pending] = useActionState<FormState, FormData>(
     createPatientAction,
@@ -72,16 +76,29 @@ export function PatientForm({
           <label className="label" htmlFor="hospitalId">
             Hospital <span className="text-red-500">*</span>
           </label>
-          <select id="hospitalId" name="hospitalId" className="input" defaultValue="">
-            <option value="" disabled>
-              Select…
-            </option>
-            {hospitals.map((h) => (
-              <option key={h.id} value={h.id}>
-                {h.name}
+          {lockedHospitalId ? (
+            <>
+              <input
+                type="text"
+                className="input bg-slate-50 text-slate-500"
+                value={hospitals.find((h) => h.id === lockedHospitalId)?.name ?? ""}
+                disabled
+                readOnly
+              />
+              <input type="hidden" name="hospitalId" value={lockedHospitalId} />
+            </>
+          ) : (
+            <select id="hospitalId" name="hospitalId" className="input" defaultValue="">
+              <option value="" disabled>
+                Select…
               </option>
-            ))}
-          </select>
+              {hospitals.map((h) => (
+                <option key={h.id} value={h.id}>
+                  {h.name}
+                </option>
+              ))}
+            </select>
+          )}
           {err("hospitalId") && (
             <p className="mt-1 text-xs text-red-600">{err("hospitalId")}</p>
           )}

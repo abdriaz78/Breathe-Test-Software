@@ -21,6 +21,7 @@ export async function GET() {
     name: session.user.name ?? "",
     email: session.user.email ?? "",
     role: session.user.role,
+    hospitalId: session.user.hospitalId,
   });
 
   return NextResponse.json(

@@ -4,7 +4,8 @@ import { prisma } from "./prisma";
 import { decrypt } from "./crypto";
 import { recordAudit } from "./audit";
 import type { CurrentUser } from "./session";
-import { authorize } from "./session";
+import { authorize, hospitalScope, isOutsideScope } from "./session";
+import { isHospitalScoped } from "./rbac";
 
 // -----------------------------------------------------------------------------
 // Breath-test data-access layer. Creating a test starts the DRAFT lifecycle.
@@ -55,9 +56,12 @@ export async function createTest(
   // Validate the patient exists (and capture MRN for the audit summary).
   const patient = await prisma.patient.findUnique({
     where: { id: data.patientId },
-    select: { id: true, mrn: true },
+    select: { id: true, mrn: true, hospitalId: true },
   });
   if (!patient) throw new Error("Selected patient does not exist.");
+  if (isOutsideScope(actor, patient.hospitalId)) {
+    throw new Error("Selected patient does not exist.");
+  }
 
   const test = await prisma.breathTest.create({
     data: {
@@ -111,6 +115,7 @@ export async function listTests(
     where: {
       patientId: opts.patientId,
       status: opts.status,
+      patient: hospitalScope(actor),
     },
     orderBy: { createdAt: "desc" },
     take: 200,
@@ -143,7 +148,7 @@ export async function getTestDetail(
   const t = await prisma.breathTest.findUnique({
     where: { id },
     include: {
-      patient: { select: { id: true, mrn: true, nameEnc: true, dobEnc: true, gender: true, weightKg: true } },
+      patient: { select: { id: true, mrn: true, nameEnc: true, dobEnc: true, gender: true, weightKg: true, hospitalId: true } },
       testType: { select: { name: true, key: true, interpretationRules: true } },
       department: { select: { name: true } },
       technician: { select: { name: true, title: true } },
@@ -153,6 +158,7 @@ export async function getTestDetail(
     },
   });
   if (!t) return null;
+  if (isOutsideScope(actor, t.patient.hospitalId)) return null;
 
   await recordAudit({
     action: "VIEW_PHI",
@@ -224,7 +230,7 @@ export async function listTestsForExport(
 ): Promise<TestExportRow[]> {
   authorize(actor.role, "report:export");
   const rows = await prisma.breathTest.findMany({
-    where: { status: opts.status },
+    where: { status: opts.status, patient: hospitalScope(actor) },
     orderBy: { createdAt: "desc" },
     take: 2000,
     include: {

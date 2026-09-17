@@ -7,6 +7,7 @@ import type { CurrentUser } from "@/lib/session";
 import { createPatient, listPatients, getPatient } from "@/lib/patients";
 import { createTest, getTestDetail, listTests, listTestsForExport } from "@/lib/tests";
 import { saveSamples, ReportLockedError } from "@/lib/samples";
+import { startTimer, acknowledgeSample } from "@/lib/timers";
 import { saveDiagnosis, completeSampleCollection, getTestAuditTrail } from "@/lib/workflow";
 import { loadReportData } from "@/lib/report";
 import { ReportDocument } from "@/lib/pdf/ReportDocument";
@@ -31,7 +32,7 @@ async function expectThrow(name: string, fn: () => Promise<unknown>, match?: str
 
 async function asUser(email: string): Promise<CurrentUser> {
   const u = await prisma.user.findUniqueOrThrow({ where: { email } });
-  return { id: u.id, name: u.name, email: u.email, role: u.role };
+  return { id: u.id, name: u.name, email: u.email, role: u.role, hospitalId: u.hospitalId };
 }
 
 async function warmup() {
@@ -148,7 +149,7 @@ async function main() {
 
   console.log("\n[9] Admin operations");
   const beforeUsers = (await listUsers(admin)).length;
-  await createUser(admin, { email: `it-nurse-${stamp}@specter.health`, name: "IT Nurse", role: "NURSE", password: "password123" }, ctx);
+  await createUser(admin, { email: `it-nurse-${stamp}@specter.health`, name: "IT Nurse", role: "NURSE", password: "password123", hospitalId: hospital.id }, ctx);
   check("admin created a user", (await listUsers(admin)).length === beforeUsers + 1);
   const ttBefore = (await listTestTypes(admin)).length;
   await createTestType(admin, { name: `Custom Test ${stamp}`, defaultSubstrate: "Xylose", h2RiseFromBaselinePpm: 20 }, ctx);
@@ -162,6 +163,65 @@ async function main() {
   console.log("\n[10] Cross-checks");
   const allTests = await listTests(nurse, {});
   check("created test appears in listing", allTests.some((t) => t.id === testId));
+
+  console.log("\n[11] Hospital scoping (Nurse/Physician see only their own hospital)");
+  const { id: otherHospitalId } = await createHospital(admin, { name: `IT Other Hospital ${stamp}` }, ctx);
+  await createUser(admin, {
+    email: `it-nurse2-${stamp}@specter.health`, name: "IT Nurse Two", role: "NURSE",
+    password: "password123", hospitalId: otherHospitalId,
+  }, ctx);
+  const nurse2 = await asUser(`it-nurse2-${stamp}@specter.health`);
+  check("other-hospital nurse does NOT see this patient in listPatients", !(await listPatients(nurse2, { mrn })).some((p) => p.id === patientId));
+  check("other-hospital nurse getPatient returns null (404, not leaked)", (await getPatient(nurse2, patientId, ctx)) === null);
+  check("other-hospital nurse does NOT see this test in listTests", !(await listTests(nurse2, {})).some((t) => t.id === testId));
+  check("other-hospital nurse getTestDetail returns null (404, not leaked)", (await getTestDetail(nurse2, testId, ctx)) === null);
+  await expectThrow(
+    "other-hospital nurse cannot create a test for this patient",
+    () => createTest(nurse2, { patientId, testTypeId: sibo.id }, ctx)
+  );
+  await expectThrow(
+    "other-hospital nurse cannot register a patient into a different hospital",
+    () => createPatient(nurse2, {
+      mrn: `X2-${stamp}`, name: "No", dob: "1990-01-01", gender: "MALE", hospitalId: hospital.id,
+    }, ctx),
+    "own hospital"
+  );
+  check("same-hospital nurse still sees the patient", (await listPatients(nurse, { mrn })).some((p) => p.id === patientId));
+
+  await createUser(admin, {
+    email: `it-physician2-${stamp}@specter.health`, name: "IT Physician Two", role: "PHYSICIAN",
+    password: "password123", hospitalId: otherHospitalId,
+  }, ctx);
+  const physician2 = await asUser(`it-physician2-${stamp}@specter.health`);
+
+  // testId is already FINALIZED at this point (step 6) — scope must be checked
+  // BEFORE the finalized-lock check, so these should all fail with "not found",
+  // never with the finalized/lock error, proving scope is the first gate.
+  await expectThrow(
+    "other-hospital nurse cannot save samples on this test",
+    () => saveSamples(nurse2, testId, [], ctx),
+    "not found"
+  );
+  await expectThrow(
+    "other-hospital nurse cannot start the timer on this test",
+    () => startTimer(nurse2, testId, { intervalMinutes: 30, totalSamples: 7 }, ctx),
+    "not found"
+  );
+  await expectThrow(
+    "other-hospital nurse cannot acknowledge a sample on this test",
+    () => acknowledgeSample(nurse2, testId, 1, ctx),
+    "not found"
+  );
+  await expectThrow(
+    "other-hospital physician cannot save a diagnosis on this test",
+    () => saveDiagnosis(physician2, testId, { diagnosis: "x" }, ctx),
+    "not found"
+  );
+  await expectThrow(
+    "other-hospital nurse cannot mark collection complete on this test",
+    () => completeSampleCollection(nurse2, testId, ctx),
+    "not found"
+  );
 
   console.log(`\n=== RESULT: ${pass} passed, ${fail} failed ===`);
   await prisma.$disconnect();

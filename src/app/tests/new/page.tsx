@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { requirePermission } from "@/lib/session";
+import { requirePermission, hospitalScope, isOutsideScope } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { decrypt } from "@/lib/crypto";
 import { ROLE_LABELS } from "@/lib/rbac";
@@ -20,6 +20,7 @@ export default async function NewTestPage({
     select: { id: true, mrn: true, nameEnc: true, hospitalId: true },
   });
   if (!patient) notFound();
+  if (isOutsideScope(user, patient.hospitalId)) notFound();
 
   const [testTypes, departments, technicians] = await Promise.all([
     prisma.testType.findMany({
@@ -33,7 +34,11 @@ export default async function NewTestPage({
       select: { id: true, name: true },
     }),
     prisma.user.findMany({
-      where: { isActive: true, role: { in: ["NURSE", "PHYSICIAN", "ADMIN"] } },
+      where: {
+        isActive: true,
+        role: { in: ["NURSE", "PHYSICIAN", "ADMIN"] },
+        ...hospitalScope(user),
+      },
       orderBy: { name: "asc" },
       select: { id: true, name: true, role: true, title: true },
     }),
