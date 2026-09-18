@@ -26,6 +26,18 @@ export const createUserSchema = z
   });
 export type CreateUserInput = z.infer<typeof createUserSchema>;
 
+export const updateUserProfileSchema = z.object({
+  email: z.string().trim().toLowerCase().email("Valid email required").max(200),
+  name: z.string().trim().min(1, "Name required").max(200),
+  title: z.string().trim().max(50).optional().or(z.literal("")),
+  licenseNo: z.string().trim().max(100).optional().or(z.literal("")),
+});
+export type UpdateUserProfileInput = z.infer<typeof updateUserProfileSchema>;
+
+export const resetPasswordSchema = z.object({
+  password: z.string().min(8, "Password must be at least 8 characters").max(200),
+});
+
 type Ctx = { ipAddress: string | null; userAgent: string | null };
 
 export async function listUsers(actor: CurrentUser) {
@@ -37,6 +49,75 @@ export async function listUsers(actor: CurrentUser) {
       licenseNo: true, isActive: true, lastLoginAt: true, createdAt: true,
       hospitalId: true, hospital: { select: { name: true } },
     },
+  });
+}
+
+export async function getUser(actor: CurrentUser, userId: string) {
+  authorize(actor.role, "user:manage");
+  return prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      id: true, email: true, name: true, role: true, title: true,
+      licenseNo: true, isActive: true, hospitalId: true,
+    },
+  });
+}
+
+export async function updateUserProfile(
+  actor: CurrentUser,
+  userId: string,
+  raw: UpdateUserProfileInput,
+  ctx: Ctx
+) {
+  authorize(actor.role, "user:manage");
+  const data = updateUserProfileSchema.parse(raw);
+
+  const target = await prisma.user.findUnique({ where: { id: userId }, select: { email: true } });
+  if (!target) throw new Error("User not found.");
+
+  if (data.email !== target.email) {
+    const existing = await prisma.user.findUnique({ where: { email: data.email } });
+    if (existing) throw new Error(`A user with email "${data.email}" already exists.`);
+  }
+
+  await prisma.user.update({
+    where: { id: userId },
+    data: {
+      email: data.email,
+      name: data.name,
+      title: data.title || null,
+      licenseNo: data.licenseNo || null,
+    },
+  });
+
+  await recordAudit({
+    action: "UPDATE", entity: "User", entityId: userId,
+    actorId: actor.id, actorRole: actor.role,
+    summary: `Updated profile for ${target.email}${data.email !== target.email ? ` (email changed to ${data.email})` : ""}`,
+    ...ctx,
+  });
+}
+
+export async function resetUserPassword(
+  actor: CurrentUser,
+  userId: string,
+  raw: { password: string },
+  ctx: Ctx
+) {
+  authorize(actor.role, "user:manage");
+  const data = resetPasswordSchema.parse(raw);
+
+  const target = await prisma.user.findUnique({ where: { id: userId }, select: { email: true } });
+  if (!target) throw new Error("User not found.");
+
+  const passwordHash = await bcrypt.hash(data.password, 10);
+  await prisma.user.update({ where: { id: userId }, data: { passwordHash } });
+
+  await recordAudit({
+    action: "UPDATE", entity: "User", entityId: userId,
+    actorId: actor.id, actorRole: actor.role,
+    summary: `Reset password for ${target.email}`,
+    ...ctx,
   });
 }
 

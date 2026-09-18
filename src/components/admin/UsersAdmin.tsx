@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
+import Link from "next/link";
 import type { Role } from "@prisma/client";
 import { ROLE_LABELS, isHospitalScoped } from "@/lib/rbac";
 import {
@@ -170,15 +171,20 @@ export function UsersAdmin({
                     {u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleDateString("en-GB") : "—"}
                   </td>
                   <td className="px-4 py-3 text-right">
-                    {u.id !== currentUserId && (
-                      <form action={toggleUserActiveAction} className="inline">
-                        <input type="hidden" name="userId" value={u.id} />
-                        <input type="hidden" name="active" value={(!u.isActive).toString()} />
-                        <button type="submit" className="text-brand hover:underline">
-                          {u.isActive ? "Deactivate" : "Activate"}
-                        </button>
-                      </form>
-                    )}
+                    <div className="flex items-center justify-end gap-3">
+                      <Link href={`/admin/users/${u.id}/edit`} className="text-brand hover:underline">
+                        Edit
+                      </Link>
+                      {u.id !== currentUserId && (
+                        <form action={toggleUserActiveAction} className="inline">
+                          <input type="hidden" name="userId" value={u.id} />
+                          <input type="hidden" name="active" value={(!u.isActive).toString()} />
+                          <button type="submit" className="text-brand hover:underline">
+                            {u.isActive ? "Deactivate" : "Activate"}
+                          </button>
+                        </form>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}
