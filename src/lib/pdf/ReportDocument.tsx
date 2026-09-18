@@ -201,27 +201,53 @@ export function ReportDocument({ data }: { data: ReportData }) {
         )}
 
         {/* Test result — compact threshold summary (support, not a diagnosis) */}
-        {data.resultSummary && (
+        {(data.resultSummary || data.ch4ResultSummary) && (
           <>
             <Text style={s.sectionTitle}>Test result</Text>
-            <View style={s.bulletLine}>
-              <Text style={s.bulletMark}>-</Text>
-              <Text style={s.bulletText}>
-                <Text
-                  style={[
-                    s.bulletText,
-                    { fontFamily: "Helvetica-Bold", color: VERDICT_COLOR[data.resultSummary.verdict] },
-                  ]}
-                >
-                  {data.resultSummary.verdict}
-                </Text>{" "}
-                {(data.test.substrate || data.test.typeName).toLowerCase()} breath test result.
-              </Text>
-            </View>
-            <View style={s.bulletLine}>
-              <Text style={s.bulletMark}>-</Text>
-              <Text style={s.bulletText}>{data.resultSummary.statsLine}</Text>
-            </View>
+            {data.resultSummary && (
+              <>
+                <View style={s.bulletLine}>
+                  <Text style={s.bulletMark}>-</Text>
+                  <Text style={s.bulletText}>
+                    <Text
+                      style={[
+                        s.bulletText,
+                        { fontFamily: "Helvetica-Bold", color: VERDICT_COLOR[data.resultSummary.verdict] },
+                      ]}
+                    >
+                      {data.resultSummary.verdict}
+                    </Text>{" "}
+                    {(data.test.substrate || data.test.typeName).toLowerCase()} breath test result.
+                  </Text>
+                </View>
+                <View style={s.bulletLine}>
+                  <Text style={s.bulletMark}>-</Text>
+                  <Text style={s.bulletText}>{data.resultSummary.statsLine}</Text>
+                </View>
+              </>
+            )}
+            {data.ch4ResultSummary && (
+              <>
+                <View style={s.bulletLine}>
+                  <Text style={s.bulletMark}>-</Text>
+                  <Text style={s.bulletText}>
+                    <Text
+                      style={[
+                        s.bulletText,
+                        { fontFamily: "Helvetica-Bold", color: CH4_VERDICT_COLOR[data.ch4ResultSummary.verdict] },
+                      ]}
+                    >
+                      {data.ch4ResultSummary.verdict}
+                    </Text>{" "}
+                    (Intestinal Methanogen Overgrowth).
+                  </Text>
+                </View>
+                <View style={s.bulletLine}>
+                  <Text style={s.bulletMark}>-</Text>
+                  <Text style={s.bulletText}>{data.ch4ResultSummary.statsLine}</Text>
+                </View>
+              </>
+            )}
           </>
         )}
 

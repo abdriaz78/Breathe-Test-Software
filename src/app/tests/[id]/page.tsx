@@ -204,20 +204,36 @@ export default async function TestDetailPage({
         </section>
       </div>
 
-      {resultSummary && (
+      {(resultSummary || ch4Result) && (
         <section className="card mt-6">
           <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-400">
             Test result
           </h2>
-          <p
-            className={`text-base font-semibold ${
-              resultSummary.anyMet ? "text-amber-700" : "text-slate-900"
-            }`}
-          >
-            {resultSummary.verdict} {(test.substrate || test.testType.name).toLowerCase()} breath
-            test result.
-          </p>
-          <p className="mt-1 text-sm text-slate-500">{resultSummary.statsLine}</p>
+          {resultSummary && (
+            <>
+              <p
+                className={`text-base font-semibold ${
+                  resultSummary.anyMet ? "text-amber-700" : "text-slate-900"
+                }`}
+              >
+                {resultSummary.verdict} {(test.substrate || test.testType.name).toLowerCase()} breath
+                test result.
+              </p>
+              <p className="mt-1 text-sm text-slate-500">{resultSummary.statsLine}</p>
+            </>
+          )}
+          {ch4Result && (
+            <>
+              <p
+                className={`text-base font-semibold ${resultSummary ? "mt-3" : ""} ${
+                  ch4Result.anyMet ? "text-amber-700" : "text-slate-900"
+                }`}
+              >
+                {ch4Result.verdict} (Intestinal Methanogen Overgrowth).
+              </p>
+              <p className="mt-1 text-sm text-slate-500">{ch4Result.statsLine}</p>
+            </>
+          )}
           <p className="mt-2 text-xs text-slate-400">
             Automated threshold support only — not a diagnosis. Final interpretation is
             the reviewing physician&apos;s.
