@@ -120,8 +120,11 @@ export function computeInterpretation(
 // -----------------------------------------------------------------------------
 // Compact 2-line result summary. The verdict depends on H2 alone:
 //
-//   H2 rise >= threshold in first 120min -> Positive
-//   Otherwise                            -> Negative
+//   H2 rise >= threshold at ANY point in the collection -> Positive
+//   Otherwise                                            -> Negative
+//
+// Matches what's plotted on the chart: the trigger line runs across the full
+// collection with no time cutoff, so a point above it must read Positive.
 //
 // CH4 and combined H2+CH4 readings do not affect this verdict (they still
 // appear as separate, non-binding support flags via computeInterpretation).
@@ -130,9 +133,6 @@ export function computeInterpretation(
 // threshold, not a clinical judgment — the disclaimer beside every flag makes
 // that boundary explicit.
 // -----------------------------------------------------------------------------
-
-/** H2 rise is evaluated only within this window from baseline. */
-const RISE_WINDOW_MINUTES = 120;
 
 export interface ResultSummary {
   verdict: "Positive" | "Negative";
@@ -198,15 +198,14 @@ export function summarizeResult(
     .sort((a, b) => a.timeMinutes - b.timeMinutes);
   if (active.length === 0) return null;
 
-  const inWindow = active.filter((s) => s.timeMinutes <= RISE_WINDOW_MINUTES);
-  const h2 = inWindow.map((s) => s.h2Ppm).filter((v): v is number => v != null);
+  const h2 = active.map((s) => s.h2Ppm).filter((v): v is number => v != null);
   if (!h2.length) return null;
 
   const times = active.map((s) => s.timeMinutes);
   const duration = fmtDuration(Math.max(...times) - Math.min(...times));
 
-  // H2 rise from baseline, restricted to the first 120 minutes, is the sole
-  // driver of the verdict — CH4 does not affect it.
+  // H2 rise from baseline, across the full collection, is the sole driver of
+  // the verdict — CH4 does not affect it.
   const base = baseline(h2) ?? 0;
   const peak = Math.max(...h2);
   const trigger = base + rules.h2RiseFromBaselinePpm;
