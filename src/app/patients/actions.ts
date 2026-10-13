@@ -1,20 +1,23 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
 import { requireUser, requestContext } from "@/lib/session";
-import { createPatient, patientInputSchema } from "@/lib/patients";
+import {
+  createPatient,
+  updatePatient,
+  patientInputSchema,
+  type PatientInput,
+} from "@/lib/patients";
 
 export interface FormState {
   error?: string;
   fieldErrors?: Record<string, string>;
 }
 
-export async function createPatientAction(
-  _prev: FormState,
+function parsePatientForm(
   formData: FormData
-): Promise<FormState> {
-  const user = await requireUser();
-
+): { data: PatientInput } | { state: FormState } {
   const raw = {
     mrn: String(formData.get("mrn") ?? ""),
     name: String(formData.get("name") ?? ""),
@@ -32,8 +35,19 @@ export async function createPatientAction(
       const key = String(issue.path[0] ?? "form");
       if (!fieldErrors[key]) fieldErrors[key] = issue.message;
     }
-    return { error: "Please correct the highlighted fields.", fieldErrors };
+    return { state: { error: "Please correct the highlighted fields.", fieldErrors } };
   }
+  return { data: parsed.data };
+}
+
+export async function createPatientAction(
+  _prev: FormState,
+  formData: FormData
+): Promise<FormState> {
+  const user = await requireUser();
+
+  const parsed = parsePatientForm(formData);
+  if ("state" in parsed) return parsed.state;
 
   let newId: string;
   try {
@@ -45,4 +59,29 @@ export async function createPatientAction(
   }
 
   redirect(`/patients/${newId}`);
+}
+
+export async function updatePatientAction(
+  _prev: FormState,
+  formData: FormData
+): Promise<FormState> {
+  const user = await requireUser();
+  const id = String(formData.get("patientId") ?? "");
+  if (!id) return { error: "Missing patient id." };
+
+  const parsed = parsePatientForm(formData);
+  if ("state" in parsed) return parsed.state;
+
+  const reason = String(formData.get("reason") ?? "").trim().slice(0, 500) || null;
+
+  try {
+    const ctx = await requestContext();
+    await updatePatient(user, id, parsed.data, reason, ctx);
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Failed to update patient." };
+  }
+
+  revalidatePath(`/patients/${id}`);
+  revalidatePath("/patients");
+  redirect(`/patients/${id}`);
 }

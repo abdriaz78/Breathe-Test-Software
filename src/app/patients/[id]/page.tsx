@@ -62,11 +62,18 @@ export default async function PatientDetailPage({
           <h1 className="text-2xl font-semibold text-slate-900">{patient.name}</h1>
           <p className="font-mono text-sm text-slate-500">MRN {patient.mrn}</p>
         </div>
-        {can(user.role, "test:create") && (
-          <Link href={`/tests/new?patientId=${patient.id}`} className="btn-primary">
-            New breath test
-          </Link>
-        )}
+        <div className="flex items-center gap-3">
+          {can(user.role, "patient:update") && (
+            <Link href={`/patients/${patient.id}/edit`} className="btn-secondary">
+              Edit details
+            </Link>
+          )}
+          {can(user.role, "test:create") && (
+            <Link href={`/tests/new?patientId=${patient.id}`} className="btn-primary">
+              New breath test
+            </Link>
+          )}
+        </div>
       </div>
 
       <div className="card max-w-3xl">

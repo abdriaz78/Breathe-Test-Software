@@ -1,8 +1,12 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { startTransition, useActionState, useState } from "react";
 import Link from "next/link";
-import { createPatientAction, type FormState } from "@/app/patients/actions";
+import {
+  createPatientAction,
+  updatePatientAction,
+  type FormState,
+} from "@/app/patients/actions";
 
 interface HospitalOption {
   id: string;
@@ -15,21 +19,38 @@ interface PhysicianOption {
   title: string | null;
 }
 
+export interface PatientFormValues {
+  id: string;
+  mrn: string;
+  name: string;
+  dob: string; // ISO date
+  gender: string;
+  weightKg: number | null;
+  hospitalId: string;
+  referringPhysician: string | null;
+}
+
 const OTHER_PHYSICIAN = "__other__";
+
+const physicianLabel = (p: PhysicianOption) => (p.title ? `${p.title} ${p.name}` : p.name);
 
 export function PatientForm({
   hospitals,
   physicians,
   lockedHospitalId,
+  patient,
 }: {
   hospitals: HospitalOption[];
   physicians: PhysicianOption[];
   /** When set (Nurse/Physician accounts), the hospital is fixed to this id and
    * shown read-only instead of a picker. */
   lockedHospitalId?: string;
+  /** When set, the form edits this existing patient instead of registering one. */
+  patient?: PatientFormValues;
 }) {
+  const editing = !!patient;
   const [state, formAction, pending] = useActionState<FormState, FormData>(
-    createPatientAction,
+    editing ? updatePatientAction : createPatientAction,
     {}
   );
 
@@ -37,12 +58,25 @@ export function PatientForm({
 
   // "Other" keeps this usable for referring physicians who aren't registered
   // system users (the common case — most referrals come from outside doctors).
+  const initialPhysician = patient?.referringPhysician ?? "";
+  const physicianListed =
+    !initialPhysician || physicians.some((p) => physicianLabel(p) === initialPhysician);
   const [physicianMode, setPhysicianMode] = useState<"select" | "other">(
-    physicians.length ? "select" : "other"
+    physicians.length && physicianListed ? "select" : "other"
   );
 
   return (
-    <form action={formAction} className="card max-w-2xl space-y-5">
+    <form
+      // Submit via onSubmit rather than `action` so React doesn't reset the
+      // fields after a failed submit — the user keeps what they typed.
+      onSubmit={(e) => {
+        e.preventDefault();
+        const fd = new FormData(e.currentTarget);
+        startTransition(() => formAction(fd));
+      }}
+      className="card max-w-2xl space-y-5"
+    >
+      {patient && <input type="hidden" name="patientId" value={patient.id} />}
       {state.error && (
         <div className="animate-fade-in-up rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
           {state.error}
@@ -50,15 +84,22 @@ export function PatientForm({
       )}
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <Field label="MRN / Patient ID" name="mrn" error={err("mrn")} required />
-        <Field label="Full name" name="name" error={err("name")} required />
-        <Field label="Date of birth" name="dob" type="date" error={err("dob")} required />
+        <Field label="MRN / Patient ID" name="mrn" defaultValue={patient?.mrn} error={err("mrn")} required />
+        <Field label="Full name" name="name" defaultValue={patient?.name} error={err("name")} required />
+        <Field
+          label="Date of birth"
+          name="dob"
+          type="date"
+          defaultValue={patient?.dob.slice(0, 10)}
+          error={err("dob")}
+          required
+        />
 
         <div>
           <label className="label" htmlFor="gender">
             Gender <span className="text-red-500">*</span>
           </label>
-          <select id="gender" name="gender" className="input" defaultValue="">
+          <select id="gender" name="gender" className="input" defaultValue={patient?.gender ?? ""}>
             <option value="" disabled>
               Select…
             </option>
@@ -70,7 +111,14 @@ export function PatientForm({
           {err("gender") && <p className="mt-1 text-xs text-red-600">{err("gender")}</p>}
         </div>
 
-        <Field label="Weight (kg)" name="weightKg" type="number" step="0.1" error={err("weightKg")} />
+        <Field
+          label="Weight (kg)"
+          name="weightKg"
+          type="number"
+          step="0.1"
+          defaultValue={patient?.weightKg != null ? String(patient.weightKg) : ""}
+          error={err("weightKg")}
+        />
 
         <div>
           <label className="label" htmlFor="hospitalId">
@@ -88,7 +136,12 @@ export function PatientForm({
               <input type="hidden" name="hospitalId" value={lockedHospitalId} />
             </>
           ) : (
-            <select id="hospitalId" name="hospitalId" className="input" defaultValue="">
+            <select
+              id="hospitalId"
+              name="hospitalId"
+              className="input"
+              defaultValue={patient?.hospitalId ?? ""}
+            >
               <option value="" disabled>
                 Select…
               </option>
@@ -113,14 +166,14 @@ export function PatientForm({
               id="referringPhysician"
               name="referringPhysician"
               className="input"
-              defaultValue=""
+              defaultValue={initialPhysician}
               onChange={(e) => {
                 if (e.target.value === OTHER_PHYSICIAN) setPhysicianMode("other");
               }}
             >
               <option value="">None</option>
               {physicians.map((p) => {
-                const label = p.title ? `${p.title} ${p.name}` : p.name;
+                const label = physicianLabel(p);
                 return (
                   <option key={p.id} value={label}>
                     {label}
@@ -137,6 +190,7 @@ export function PatientForm({
                 type="text"
                 className="input"
                 placeholder="Referring physician name"
+                defaultValue={physicianListed ? "" : initialPhysician}
                 autoFocus={physicians.length > 0}
               />
               {physicians.length > 0 && (
@@ -156,11 +210,28 @@ export function PatientForm({
         </div>
       </div>
 
+      {editing && (
+        <div>
+          <label className="label" htmlFor="reason">
+            Reason for correction
+          </label>
+          <input
+            id="reason"
+            name="reason"
+            type="text"
+            maxLength={500}
+            className="input"
+            placeholder="e.g. Date of birth entered incorrectly at registration"
+          />
+          <p className="mt-1 text-xs text-slate-400">Recorded in the audit trail.</p>
+        </div>
+      )}
+
       <div className="flex items-center gap-3">
         <button type="submit" className="btn-primary" disabled={pending}>
-          {pending ? "Saving…" : "Register patient"}
+          {pending ? "Saving…" : editing ? "Save changes" : "Register patient"}
         </button>
-        <Link href="/patients" className="btn-secondary">
+        <Link href={patient ? `/patients/${patient.id}` : "/patients"} className="btn-secondary">
           Cancel
         </Link>
       </div>
@@ -174,6 +245,7 @@ function Field({
   type = "text",
   step,
   required,
+  defaultValue,
   error,
 }: {
   label: string;
@@ -181,6 +253,7 @@ function Field({
   type?: string;
   step?: string;
   required?: boolean;
+  defaultValue?: string;
   error?: string;
 }) {
   return (
@@ -188,7 +261,14 @@ function Field({
       <label className="label" htmlFor={name}>
         {label} {required && <span className="text-red-500">*</span>}
       </label>
-      <input id={name} name={name} type={type} step={step} className="input" />
+      <input
+        id={name}
+        name={name}
+        type={type}
+        step={step}
+        defaultValue={defaultValue}
+        className="input"
+      />
       {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
     </div>
   );
