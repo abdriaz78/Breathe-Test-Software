@@ -163,7 +163,7 @@ function fmtDuration(totalMinutes: number): string {
 
 export interface Ch4ResultSummary {
   verdict: "IMO Positive" | "IMO Negative";
-  /** e.g. "CH₄ peak 14 PPM (threshold 12 PPM)." */
+  /** e.g. "CH₄ peak 14 PPM (threshold 10 PPM)." */
   statsLine: string;
   /** True when the verdict is Positive — for UI emphasis only. */
   anyMet: boolean;

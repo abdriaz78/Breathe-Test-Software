@@ -200,54 +200,29 @@ export function ReportDocument({ data }: { data: ReportData }) {
           </>
         )}
 
-        {/* Test result — compact threshold summary (support, not a diagnosis) */}
-        {(data.resultSummary || data.ch4ResultSummary) && (
+        {/* Test result — compact H2 threshold summary (support, not a diagnosis).
+            The IMO/CH4 verdict is shown only as the badge on the CH4 chart. */}
+        {data.resultSummary && (
           <>
             <Text style={s.sectionTitle}>Test result</Text>
-            {data.resultSummary && (
-              <>
-                <View style={s.bulletLine}>
-                  <Text style={s.bulletMark}>-</Text>
-                  <Text style={s.bulletText}>
-                    <Text
-                      style={[
-                        s.bulletText,
-                        { fontFamily: "Helvetica-Bold", color: VERDICT_COLOR[data.resultSummary.verdict] },
-                      ]}
-                    >
-                      {data.resultSummary.verdict}
-                    </Text>{" "}
-                    {(data.test.substrate || data.test.typeName).toLowerCase()} breath test result.
-                  </Text>
-                </View>
-                <View style={s.bulletLine}>
-                  <Text style={s.bulletMark}>-</Text>
-                  <Text style={s.bulletText}>{data.resultSummary.statsLine}</Text>
-                </View>
-              </>
-            )}
-            {data.ch4ResultSummary && (
-              <>
-                <View style={s.bulletLine}>
-                  <Text style={s.bulletMark}>-</Text>
-                  <Text style={s.bulletText}>
-                    <Text
-                      style={[
-                        s.bulletText,
-                        { fontFamily: "Helvetica-Bold", color: CH4_VERDICT_COLOR[data.ch4ResultSummary.verdict] },
-                      ]}
-                    >
-                      {data.ch4ResultSummary.verdict}
-                    </Text>{" "}
-                    (Intestinal Methanogen Overgrowth).
-                  </Text>
-                </View>
-                <View style={s.bulletLine}>
-                  <Text style={s.bulletMark}>-</Text>
-                  <Text style={s.bulletText}>{data.ch4ResultSummary.statsLine}</Text>
-                </View>
-              </>
-            )}
+            <View style={s.bulletLine}>
+              <Text style={s.bulletMark}>-</Text>
+              <Text style={s.bulletText}>
+                <Text
+                  style={[
+                    s.bulletText,
+                    { fontFamily: "Helvetica-Bold", color: VERDICT_COLOR[data.resultSummary.verdict] },
+                  ]}
+                >
+                  {data.resultSummary.verdict}
+                </Text>{" "}
+                {(data.test.substrate || data.test.typeName).toLowerCase()} breath test result.
+              </Text>
+            </View>
+            <View style={s.bulletLine}>
+              <Text style={s.bulletMark}>-</Text>
+              <Text style={s.bulletText}>{data.resultSummary.statsLine}</Text>
+            </View>
           </>
         )}
 

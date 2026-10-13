@@ -30,7 +30,7 @@ export type SeriesKey = "h2" | "ch4" | "combined";
 /** CH₄ trigger/reference line is fixed (absolute ppm), per clinical requirement.
  * A peak at or above this value is flagged as IMO (Intestinal Methanogen
  * Overgrowth) positive — see summarizeCh4Result in lib/interpretation.ts. */
-export const CH4_TRIGGER_PPM = 12;
+export const CH4_TRIGGER_PPM = 10;
 
 export interface SeriesGeometry {
   key: SeriesKey;
