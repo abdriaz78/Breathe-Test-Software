@@ -2,7 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { requireUser, requestContext } from "@/lib/session";
-import { acknowledgeSample, startTimer } from "@/lib/timers";
+import { acknowledgeSample, deleteTimer, startTimer } from "@/lib/timers";
+import { userMessage } from "@/lib/errors";
 
 export interface TimerFormState {
   error?: string;
@@ -29,7 +30,7 @@ export async function startTimerAction(
       ctx
     );
   } catch (err) {
-    return { error: err instanceof Error ? err.message : "Could not start the timer." };
+    return { error: userMessage(err, "Could not start the timer.") };
   }
 
   revalidatePath(`/tests/${testId}`);
@@ -48,9 +49,26 @@ export async function acknowledgeSampleAction(
     const ctx = await requestContext();
     await acknowledgeSample(user, testId, sampleIndex, ctx);
   } catch (err) {
-    return { error: err instanceof Error ? err.message : "Could not acknowledge the sample." };
+    return { error: userMessage(err, "Could not acknowledge the sample.") };
   }
 
   revalidatePath(`/tests/${testId}`);
+  return { ok: true };
+}
+
+/** Admin only: remove a test's sample reminders. Plain args, like acknowledge. */
+export async function deleteTimerAction(testId: string): Promise<TimerFormState> {
+  const user = await requireUser();
+  if (!testId) return { error: "Missing test id." };
+
+  try {
+    const ctx = await requestContext();
+    await deleteTimer(user, testId, ctx);
+  } catch (err) {
+    return { error: userMessage(err, "Could not delete the reminders.") };
+  }
+
+  revalidatePath(`/tests/${testId}`);
+  revalidatePath("/tests");
   return { ok: true };
 }

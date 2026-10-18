@@ -8,6 +8,7 @@ import {
   createUser, createUserSchema, setUserActive, changeUserRole, changeUserHospital,
   updateUserProfile, updateUserProfileSchema, resetUserPassword, resetPasswordSchema,
 } from "@/lib/admin-users";
+import { userMessage } from "@/lib/errors";
 
 export interface UserFormState {
   error?: string;
@@ -42,7 +43,7 @@ export async function createUserAction(
     const ctx = await requestContext();
     await createUser(actor, parsed.data, ctx);
   } catch (err) {
-    return { error: err instanceof Error ? err.message : "Failed to create user." };
+    return { error: userMessage(err, "Failed to create user.") };
   }
   redirect("/admin/users");
 }
@@ -99,7 +100,7 @@ export async function updateUserProfileAction(
     const ctx = await requestContext();
     await updateUserProfile(actor, userId, parsed.data, ctx);
   } catch (err) {
-    return { error: err instanceof Error ? err.message : "Failed to update user." };
+    return { error: userMessage(err, "Failed to update user.") };
   }
   revalidatePath("/admin/users");
   redirect("/admin/users");
@@ -125,7 +126,7 @@ export async function resetUserPasswordAction(
     const ctx = await requestContext();
     await resetUserPassword(actor, userId, parsed.data, ctx);
   } catch (err) {
-    return { error: err instanceof Error ? err.message : "Failed to reset password." };
+    return { error: userMessage(err, "Failed to reset password.") };
   }
   return { ok: true };
 }

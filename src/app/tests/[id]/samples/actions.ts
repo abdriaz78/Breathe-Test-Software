@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { requireUser, requestContext } from "@/lib/session";
 import { saveSamples, saveSamplesSchema } from "@/lib/samples";
 import { completeSampleCollection } from "@/lib/workflow";
+import { userMessage } from "@/lib/errors";
 
 export interface SamplesFormState {
   error?: string;
@@ -45,7 +46,7 @@ export async function saveSamplesAction(
     const ctx = await requestContext();
     await saveSamples(user, testId, parsed.rows, ctx);
   } catch (err) {
-    return { error: err instanceof Error ? err.message : "Failed to save samples." };
+    return { error: userMessage(err, "Failed to save samples.") };
   }
 
   redirect(`/tests/${testId}`);
@@ -69,7 +70,7 @@ export async function completeSampleCollectionAction(
     await saveSamples(user, testId, parsed.rows, ctx);
     await completeSampleCollection(user, testId, ctx);
   } catch (err) {
-    return { error: err instanceof Error ? err.message : "Failed to mark collection complete." };
+    return { error: userMessage(err, "Failed to mark collection complete.") };
   }
 
   redirect(`/tests/${testId}`);

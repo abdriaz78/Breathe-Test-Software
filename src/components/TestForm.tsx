@@ -2,6 +2,7 @@
 
 import { useActionState, useRef, useState } from "react";
 import Link from "next/link";
+import { Avatar } from "@/components/ui/primitives";
 import { createTestAction, type TestFormState } from "@/app/tests/actions";
 
 export interface TestTypeOption {
@@ -50,17 +51,24 @@ export function TestForm({
 
   return (
     <form action={formAction} className="card max-w-2xl space-y-5">
-      <input type="hidden" name="patientId" value={patient.id} />
-
       {state.error && (
-        <div className="animate-fade-in-up rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+        <div className="animate-fade-in-up rounded-xl border border-red-200 bg-red-50 px-3.5 py-2.5 text-sm text-red-700">
           {state.error}
         </div>
       )}
 
-      <div className="rounded-md bg-slate-50 px-3 py-2 text-sm text-slate-600">
-        Patient: <span className="font-medium text-slate-900">{patient.name}</span>{" "}
-        <span className="font-mono text-slate-500">(MRN {patient.mrn})</span>
+      <div className="flex items-center gap-3 rounded-xl border border-brand-100 bg-gradient-to-r from-brand-50 to-sky-50 px-4 py-3">
+        <input type="hidden" name="patientId" value={patient.id} />
+        <Avatar name={patient.name} size="sm" />
+        <div className="min-w-0">
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-brand-700/70">Patient</p>
+          <p className="truncate text-sm font-semibold text-slate-900">
+            {patient.name}{" "}
+            <span className="ml-1 rounded-md bg-white/80 px-1.5 py-0.5 font-mono text-xs font-normal text-slate-600">
+              MRN {patient.mrn}
+            </span>
+          </p>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -85,7 +93,7 @@ export function TestForm({
             ))}
           </select>
           {err("testTypeId") && (
-            <p className="mt-1 text-xs text-red-600">{err("testTypeId")}</p>
+            <p className="field-error">{err("testTypeId")}</p>
           )}
         </div>
 

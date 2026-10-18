@@ -3,6 +3,7 @@ import type { AuditAction } from "@prisma/client";
 import { requirePermission } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { AppShell } from "@/components/AppShell";
+import { PageHeader } from "@/components/ui/primitives";
 
 const ACTIONS: AuditAction[] = [
   "CREATE", "UPDATE", "DELETE", "LOGIN", "LOGOUT", "STATUS_CHANGE",
@@ -33,10 +34,15 @@ export default async function AuditPage({
 
   return (
     <AppShell user={user} breadcrumbs={[{ label: "Home", href: "/" }, { label: "Audit Log" }]}>
-      <h1 className="mb-1 text-2xl font-semibold text-slate-900">Audit log</h1>
-      <p className="mb-6 text-sm text-slate-500">
-        Most recent {logs.length} event(s). PHI is never stored in audit records.
-      </p>
+      <PageHeader
+        icon="history"
+        title={<>Audit log</>}
+        description={
+          <>
+            Most recent {logs.length} event(s). PHI is never stored in audit records.
+          </>
+        }
+      />
 
       <div className="mb-4 flex flex-wrap gap-2">
         <Link
@@ -56,9 +62,9 @@ export default async function AuditPage({
         ))}
       </div>
 
-      <div className="overflow-x-auto rounded-lg border border-clinical-border bg-white">
+      <div className="table-shell">
         <table className="min-w-full divide-y divide-clinical-border text-sm">
-          <thead className="bg-slate-50 text-left text-xs font-medium uppercase tracking-wide text-slate-500">
+          <thead className="bg-slate-50/80 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500">
             <tr>
               <th className="px-4 py-3">Time</th>
               <th className="px-4 py-3">Action</th>

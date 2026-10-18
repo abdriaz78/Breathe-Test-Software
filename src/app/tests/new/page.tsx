@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { decrypt } from "@/lib/crypto";
 import { ROLE_LABELS } from "@/lib/rbac";
 import { AppShell } from "@/components/AppShell";
+import { PageHeader } from "@/components/ui/primitives";
 import { TestForm } from "@/components/TestForm";
 
 export default async function NewTestPage({
@@ -56,11 +57,16 @@ export default async function NewTestPage({
         { label: "New test" },
       ]}
     >
-      <h1 className="mb-1 text-2xl font-semibold text-slate-900">New breath test</h1>
-      <p className="mb-6 text-sm text-slate-500">
-        The test starts as a <span className="font-medium">Draft</span>. You can enter
+      <PageHeader
+        icon="flask"
+        title={<>New breath test</>}
+        description={
+          <>
+            The test starts as a <span className="font-medium">Draft</span>. You can enter
         samples after creating it.
-      </p>
+          </>
+        }
+      />
 
       <TestForm
         patient={{ id: patient.id, name: patientName, mrn: patient.mrn }}

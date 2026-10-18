@@ -134,14 +134,14 @@ export function SampleTable({
   return (
     <div className="space-y-4">
       {(state.error || completeState.error) && (
-        <div className="animate-fade-in-up rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+        <div className="animate-fade-in-up rounded-xl border border-red-200 bg-red-50 px-3.5 py-2.5 text-sm text-red-700">
           {state.error || completeState.error}
         </div>
       )}
 
       <div className="overflow-x-auto rounded-lg border border-clinical-border bg-white">
         <table className="min-w-full text-sm">
-          <thead className="bg-slate-50 text-left text-xs font-medium uppercase tracking-wide text-slate-500">
+          <thead className="bg-slate-50/80 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500">
             <tr>
               <th className="px-2 py-2">#</th>
               <th className="px-2 py-2">Interval (min)</th>
@@ -161,7 +161,7 @@ export function SampleTable({
               const total = sampleTotal(numOrNull(r.h2Ppm), numOrNull(r.ch4Ppm));
               const disabled = r.skipped;
               return (
-                <tr key={i} className={`transition-colors duration-150 ${disabled ? "bg-slate-50/60" : "hover:bg-brand/5"}`}>
+                <tr key={i} className={`transition-colors duration-150 ${disabled ? "bg-slate-50/60" : "hover:bg-brand-50/50"}`}>
                   <td className="px-2 py-1">
                     <input
                       type="number"
@@ -293,14 +293,14 @@ export function SampleTable({
       {showChart && (
         <div className="animate-fade-in-up grid grid-cols-1 gap-4 lg:grid-cols-2">
           <div className="rounded-lg border border-clinical-border bg-white p-4">
-            <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-400">
+            <h3 className="mb-3 font-display text-base font-semibold text-slate-900">
               H₂ over time
             </h3>
             <BreathChart samples={chartSamples} series={["h2"]} h2RiseThreshold={h2RiseThreshold} />
           </div>
           <div className="rounded-lg border border-clinical-border bg-white p-4">
             <div className="mb-3 flex items-center justify-between">
-              <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-400">
+              <h3 className="font-display text-base font-semibold text-slate-900">
                 CH₄ over time
               </h3>
               {ch4Result && (
@@ -372,7 +372,7 @@ function ClockCell({
     <input
       type="text"
       inputMode="numeric"
-      placeholder="e.g. 1:30 PM"
+      placeholder="1:30 PM"
       className="input w-24 px-2 py-1"
       value={text}
       onChange={(e) => setText(e.target.value)}

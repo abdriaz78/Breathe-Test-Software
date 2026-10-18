@@ -9,6 +9,7 @@ import {
   patientInputSchema,
   type PatientInput,
 } from "@/lib/patients";
+import { userMessage } from "@/lib/errors";
 
 export interface FormState {
   error?: string;
@@ -55,7 +56,7 @@ export async function createPatientAction(
     const result = await createPatient(user, parsed.data, ctx);
     newId = result.id;
   } catch (err) {
-    return { error: err instanceof Error ? err.message : "Failed to create patient." };
+    return { error: userMessage(err, "Failed to create patient.") };
   }
 
   redirect(`/patients/${newId}`);
@@ -78,7 +79,7 @@ export async function updatePatientAction(
     const ctx = await requestContext();
     await updatePatient(user, id, parsed.data, reason, ctx);
   } catch (err) {
-    return { error: err instanceof Error ? err.message : "Failed to update patient." };
+    return { error: userMessage(err, "Failed to update patient.") };
   }
 
   revalidatePath(`/patients/${id}`);

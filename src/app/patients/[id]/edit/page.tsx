@@ -4,6 +4,7 @@ import { isHospitalScoped } from "@/lib/rbac";
 import { prisma } from "@/lib/prisma";
 import { getPatient } from "@/lib/patients";
 import { AppShell } from "@/components/AppShell";
+import { PageHeader } from "@/components/ui/primitives";
 import { PatientForm } from "@/components/PatientForm";
 
 export default async function EditPatientPage({
@@ -45,11 +46,16 @@ export default async function EditPatientPage({
         { label: "Edit" },
       ]}
     >
-      <h1 className="mb-1 text-2xl font-semibold text-slate-900">Edit patient details</h1>
-      <p className="mb-6 text-sm text-slate-500">
-        Correct any details entered wrongly at registration. Every change is recorded in the
+      <PageHeader
+        icon="pencil"
+        title={<>Edit patient details</>}
+        description={
+          <>
+            Correct any details entered wrongly at registration. Every change is recorded in the
         audit trail.
-      </p>
+          </>
+        }
+      />
 
       {finalizedCount > 0 && (
         <div className="mb-6 max-w-2xl rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">

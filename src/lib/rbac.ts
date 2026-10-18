@@ -17,6 +17,7 @@ export type Permission =
   | "test:create"
   | "test:update" // edit setup/samples while not finalized
   | "test:timer" // start / acknowledge the sample collection timer
+  | "timer:delete" // remove a test's sample collection reminders entirely
   | "test:diagnose" // author diagnosis/recommendation
   // Reporting / export
   | "report:export"
@@ -30,7 +31,7 @@ export type Permission =
 export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
   ADMIN: [
     "patient:read", "patient:create", "patient:update",
-    "test:read", "test:create", "test:update", "test:timer",
+    "test:read", "test:create", "test:update", "test:timer", "timer:delete",
     "report:export", "report:share",
     "user:manage", "testtype:manage", "hospital:manage", "audit:read",
   ],

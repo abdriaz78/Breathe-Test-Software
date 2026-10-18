@@ -2,6 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import { requirePermission, requestContext } from "@/lib/session";
 import { getTestDetail } from "@/lib/tests";
 import { AppShell } from "@/components/AppShell";
+import { PageHeader } from "@/components/ui/primitives";
 import { SampleTable, type EditableRow } from "@/components/SampleTable";
 
 export default async function EditSamplesPage({
@@ -41,11 +42,16 @@ export default async function EditSamplesPage({
         { label: "Samples" },
       ]}
     >
-      <h1 className="mb-1 text-2xl font-semibold text-slate-900">Sample entry</h1>
-      <p className="mb-6 text-sm text-slate-500">
-        {test.patient.name} <span className="font-mono">(MRN {test.patient.mrn})</span> —{" "}
+      <PageHeader
+        icon="activity"
+        title={<>Sample entry</>}
+        description={
+          <>
+            {test.patient.name} <span className="font-mono">(MRN {test.patient.mrn})</span> —{" "}
         {test.testType.name}. H₂+CH₄ is calculated automatically.
-      </p>
+          </>
+        }
+      />
 
       <SampleTable
         testId={id}

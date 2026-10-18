@@ -1,21 +1,19 @@
 import Link from "next/link";
 import type { ReportStatus } from "@prisma/client";
 import { requirePermission } from "@/lib/session";
-import { listTests, STATUS_LABEL, STATUS_STYLE } from "@/lib/tests";
+import { countTestsByStatus, listTests, STATUS_LABEL } from "@/lib/tests";
 import { can } from "@/lib/rbac";
 import { AppShell } from "@/components/AppShell";
-import { TestRowTimer } from "@/components/TestRowTimer";
-
-function formatDate(d: Date | null): string {
-  if (!d) return "—";
-  return new Date(d).toLocaleDateString("en-GB", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
-}
+import { TestsTable } from "@/components/ListTables";
+import { Icon } from "@/components/ui/Icon";
+import { PageHeader } from "@/components/ui/primitives";
 
 const STATUSES: ReportStatus[] = ["DRAFT", "IN_PROGRESS", "FINALIZED"];
+const DOT: Record<ReportStatus, string> = {
+  DRAFT: "bg-slate-400",
+  IN_PROGRESS: "bg-amber-400",
+  FINALIZED: "bg-emerald-500",
+};
 
 export default async function TestsPage({
   searchParams,
@@ -28,85 +26,77 @@ export default async function TestsPage({
     ? (status as ReportStatus)
     : undefined;
 
-  const tests = await listTests(user, { status: statusFilter });
+  const [tests, counts] = await Promise.all([
+    listTests(user, { status: statusFilter }),
+    countTestsByStatus(user),
+  ]);
+  const total = counts.DRAFT + counts.IN_PROGRESS + counts.FINALIZED;
+  const canCreate = can(user.role, "test:create");
+
+  const chip = (active: boolean) =>
+    `chip ${
+      active
+        ? "border-transparent bg-gradient-to-r from-brand-600 to-brand-700 text-white shadow-glow"
+        : "border-clinical-border bg-white text-slate-600 hover:border-brand-200 hover:text-brand-700"
+    }`;
+  const countPill = (active: boolean) =>
+    `rounded-full px-1.5 text-[11px] font-semibold tabular-nums ${active ? "bg-white/20 text-white" : "bg-slate-100 text-slate-500"}`;
 
   return (
     <AppShell user={user} breadcrumbs={[{ label: "Home", href: "/" }, { label: "Breath Tests" }]}>
-      <div className="mb-6 flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-slate-900">Breath Tests</h1>
-          <p className="text-sm text-slate-500">{tests.length} test(s)</p>
-        </div>
-        {can(user.role, "report:export") && (
-          <a
-            href={`/api/tests/export.csv${statusFilter ? `?status=${statusFilter}` : ""}`}
-            className="btn-secondary"
-          >
-            Export CSV
-          </a>
-        )}
-      </div>
+      <PageHeader
+        title="Breath Tests"
+        icon="flask"
+        description="Track every test from setup to signed report."
+        actions={
+          <>
+            {can(user.role, "report:export") && (
+              <a
+                href={`/api/tests/export.csv${statusFilter ? `?status=${statusFilter}` : ""}`}
+                className="btn-secondary"
+              >
+                <Icon name="download" className="h-4 w-4" /> Export CSV
+              </a>
+            )}
+            {canCreate && (
+              <Link href="/patients" title="Choose a patient, then start the test from their record" className="btn-primary">
+                <Icon name="plus" className="h-4 w-4" /> Start a test
+              </Link>
+            )}
+          </>
+        }
+      />
 
-      <div className="mb-4 flex gap-2">
-        <Link
-          href="/tests"
-          className={`rounded-md px-3 py-1.5 text-sm ${!statusFilter ? "bg-brand text-white" : "bg-white text-slate-600 border border-clinical-border"}`}
-        >
-          All
+      <div className="mb-5 flex flex-wrap gap-2">
+        <Link href="/tests" className={chip(!statusFilter)}>
+          All <span className={countPill(!statusFilter)}>{total}</span>
         </Link>
         {STATUSES.map((s) => (
-          <Link
-            key={s}
-            href={`/tests?status=${s}`}
-            className={`rounded-md px-3 py-1.5 text-sm transition-all duration-150 active:scale-95 ${statusFilter === s ? "bg-brand text-white shadow-sm" : "bg-white text-slate-600 border border-clinical-border hover:border-brand hover:text-brand"}`}
-          >
-            {STATUS_LABEL[s]}
+          <Link key={s} href={`/tests?status=${s}`} className={chip(statusFilter === s)}>
+            <span className={`h-2 w-2 rounded-full ${statusFilter === s ? "bg-white" : DOT[s]}`} />
+            {STATUS_LABEL[s]} <span className={countPill(statusFilter === s)}>{counts[s]}</span>
           </Link>
         ))}
       </div>
 
-      <div className="overflow-hidden rounded-lg border border-clinical-border bg-white">
-        <table className="min-w-full divide-y divide-clinical-border text-sm">
-          <thead className="bg-slate-50 text-left text-xs font-medium uppercase tracking-wide text-slate-500">
-            <tr>
-              <th className="px-4 py-3">Patient</th>
-              <th className="px-4 py-3">MRN</th>
-              <th className="px-4 py-3">Test type</th>
-              <th className="px-4 py-3">Collection</th>
-              <th className="px-4 py-3">Status</th>
-              <th className="px-4 py-3" />
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-clinical-border">
-            {tests.length === 0 && (
-              <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-slate-400">
-                  No tests found.
-                </td>
-              </tr>
-            )}
-            {tests.map((t) => (
-              <tr key={t.id} className="transition-colors duration-150 hover:bg-brand/5">
-                <td className="px-4 py-3 font-medium text-slate-900">{t.patientName}</td>
-                <td className="px-4 py-3 font-mono text-slate-600">{t.patientMrn}</td>
-                <td className="px-4 py-3 text-slate-600">{t.testTypeName}</td>
-                <td className="px-4 py-3 text-slate-600">{formatDate(t.collectionDate)}</td>
-                <td className="px-4 py-3">
-                  <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_STYLE[t.status]}`}>
-                    {STATUS_LABEL[t.status]}
-                  </span>
-                  <TestRowTimer testId={t.id} />
-                </td>
-                <td className="px-4 py-3 text-right">
-                  <Link href={`/tests/${t.id}`} className="text-brand hover:underline">
-                    Open
-                  </Link>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <TestsTable
+        available={statusFilter ? counts[statusFilter] : total}
+        rows={tests.map((t) => ({
+          id: t.id,
+          patientName: t.patientName,
+          patientMrn: t.patientMrn,
+          testTypeName: t.testTypeName,
+          status: t.status,
+          collectionDate: t.collectionDate ? t.collectionDate.toISOString() : null,
+        }))}
+        emptyAction={
+          canCreate ? (
+            <Link href="/patients" title="Choose a patient, then start the test from their record" className="btn-primary">
+              <Icon name="plus" className="h-4 w-4" /> Start a breath test
+            </Link>
+          ) : undefined
+        }
+      />
     </AppShell>
   );
 }

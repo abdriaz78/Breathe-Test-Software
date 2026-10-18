@@ -56,7 +56,7 @@ function EditableWorkflow(props: Props) {
   return (
     <div className="space-y-4">
       {notice && (
-        <div className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{notice}</div>
+        <div className="rounded-xl border border-red-200 bg-red-50 px-3.5 py-2.5 text-sm text-red-700">{notice}</div>
       )}
       {ok && !notice && (
         <div className="rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{ok}</div>

@@ -2,6 +2,7 @@ import { requirePermission, hospitalScope } from "@/lib/session";
 import { isHospitalScoped } from "@/lib/rbac";
 import { prisma } from "@/lib/prisma";
 import { AppShell } from "@/components/AppShell";
+import { PageHeader } from "@/components/ui/primitives";
 import { PatientForm } from "@/components/PatientForm";
 
 export default async function NewPatientPage() {
@@ -29,11 +30,16 @@ export default async function NewPatientPage() {
         { label: "Register" },
       ]}
     >
-      <h1 className="mb-1 text-2xl font-semibold text-slate-900">Register patient</h1>
-      <p className="mb-6 text-sm text-slate-500">
-        Patient identifiers are encrypted at rest. Fields marked{" "}
+      <PageHeader
+        icon="userPlus"
+        title={<>Register patient</>}
+        description={
+          <>
+            Patient identifiers are encrypted at rest. Fields marked{" "}
         <span className="text-red-500">*</span> are required.
-      </p>
+          </>
+        }
+      />
 
       {hospitals.length === 0 ? (
         <div className="card max-w-2xl text-sm text-slate-600">

@@ -5,6 +5,8 @@ import { can } from "@/lib/rbac";
 import { getPatient, ageOf } from "@/lib/patients";
 import { listTests, STATUS_LABEL, STATUS_STYLE } from "@/lib/tests";
 import { AppShell } from "@/components/AppShell";
+import { Icon } from "@/components/ui/Icon";
+import { Avatar } from "@/components/ui/primitives";
 
 const GENDER_LABEL: Record<string, string> = {
   MALE: "Male",
@@ -57,26 +59,38 @@ export default async function PatientDetailPage({
         { label: patient.name },
       ]}
     >
-      <div className="mb-6 flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-slate-900">{patient.name}</h1>
-          <p className="font-mono text-sm text-slate-500">MRN {patient.mrn}</p>
+      <section className="card relative mb-6 max-w-4xl overflow-hidden p-0 animate-fade-in-up">
+        <div className="pointer-events-none absolute -right-16 -top-20 h-56 w-56 rounded-full bg-sky-200/40 blur-3xl" />
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-sky-400 via-brand-500 to-brand-700" />
+        <div className="relative flex flex-col gap-5 p-6 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-4">
+            <Avatar name={patient.name} size="lg" />
+            <div>
+              <h1 className="font-display text-2xl font-bold tracking-tight text-slate-900 sm:text-[28px]">{patient.name}</h1>
+              <p className="mt-1 flex flex-wrap items-center gap-2 text-sm text-slate-500">
+                <span className="rounded-md bg-slate-100 px-2 py-0.5 font-mono text-xs text-slate-700">MRN {patient.mrn}</span>
+                {age != null && <span>{age} yrs</span>}
+                <span className="text-slate-300">•</span>
+                <span>{GENDER_LABEL[patient.gender] ?? patient.gender}</span>
+              </p>
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            {can(user.role, "patient:update") && (
+              <Link href={`/patients/${patient.id}/edit`} className="btn-secondary">
+                <Icon name="pencil" className="h-4 w-4" /> Edit details
+              </Link>
+            )}
+            {can(user.role, "test:create") && (
+              <Link href={`/tests/new?patientId=${patient.id}`} className="btn-primary">
+                <Icon name="plus" className="h-4 w-4" /> New breath test
+              </Link>
+            )}
+          </div>
         </div>
-        <div className="flex items-center gap-3">
-          {can(user.role, "patient:update") && (
-            <Link href={`/patients/${patient.id}/edit`} className="btn-secondary">
-              Edit details
-            </Link>
-          )}
-          {can(user.role, "test:create") && (
-            <Link href={`/tests/new?patientId=${patient.id}`} className="btn-primary">
-              New breath test
-            </Link>
-          )}
-        </div>
-      </div>
+      </section>
 
-      <div className="card max-w-3xl">
+      <div className="card max-w-4xl">
         <dl className="grid grid-cols-1 gap-x-8 gap-y-4 sm:grid-cols-2">
           {rows.map(([label, value]) => (
             <div key={label}>
@@ -90,16 +104,16 @@ export default async function PatientDetailPage({
       </div>
 
       {showReports && (
-        <section className="mt-6 max-w-3xl">
+        <section className="mt-6 max-w-4xl">
           <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-400">
+            <h2 className="font-display text-base font-semibold text-slate-900">
               Reports
             </h2>
             <span className="text-sm text-slate-500">{reports.length} report(s)</span>
           </div>
-          <div className="overflow-hidden rounded-lg border border-clinical-border bg-white">
+          <div className="table-shell">
             <table className="min-w-full divide-y divide-clinical-border text-sm">
-              <thead className="bg-slate-50 text-left text-xs font-medium uppercase tracking-wide text-slate-500">
+              <thead className="bg-slate-50/80 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500">
                 <tr>
                   <th className="px-4 py-3">Test type</th>
                   <th className="px-4 py-3">Collection</th>
@@ -117,7 +131,7 @@ export default async function PatientDetailPage({
                   </tr>
                 )}
                 {reports.map((t) => (
-                  <tr key={t.id} className="transition-colors duration-150 hover:bg-brand/5">
+                  <tr key={t.id} className="transition-colors duration-150 hover:bg-brand-50/50">
                     <td className="px-4 py-3 font-medium text-slate-900">{t.testTypeName}</td>
                     <td className="px-4 py-3 text-slate-600">{formatDate(t.collectionDate)}</td>
                     <td className="px-4 py-3 text-slate-600">{formatDate(t.createdAt)}</td>
@@ -127,7 +141,7 @@ export default async function PatientDetailPage({
                       </span>
                     </td>
                     <td className="px-4 py-3 text-right">
-                      <Link href={`/tests/${t.id}`} className="text-brand hover:underline">
+                      <Link href={`/tests/${t.id}`} className="font-semibold text-brand-700 hover:text-brand-800 hover:underline">
                         Open
                       </Link>
                     </td>
@@ -139,7 +153,8 @@ export default async function PatientDetailPage({
         </section>
       )}
 
-      <p className="mt-4 max-w-3xl text-xs text-slate-400">
+      <p className="mt-4 flex max-w-4xl items-center gap-1.5 text-xs text-slate-400">
+        <Icon name="shield" className="h-3.5 w-3.5" />
         Accessing this record was logged to the audit trail.
       </p>
     </AppShell>

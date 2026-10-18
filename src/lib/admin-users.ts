@@ -14,7 +14,7 @@ export const createUserSchema = z
   .object({
     email: z.string().trim().toLowerCase().email("Valid email required").max(200),
     name: z.string().trim().min(1, "Name required").max(200),
-    role: z.enum(["ADMIN", "NURSE", "PHYSICIAN", "SPECTER_SUPPORT"]),
+    role: z.enum(["ADMIN", "NURSE", "PHYSICIAN", "SPECTER_SUPPORT"], { errorMap: () => ({ message: "Please select a role" }) }),
     title: z.string().trim().max(50).optional().or(z.literal("")),
     licenseNo: z.string().trim().max(100).optional().or(z.literal("")),
     password: z.string().min(8, "Password must be at least 8 characters").max(200),

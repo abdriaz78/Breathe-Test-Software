@@ -1,16 +1,28 @@
 import Link from "next/link";
-import { can, ROLE_LABELS } from "@/lib/rbac";
+import { can, ROLE_LABELS, type Permission } from "@/lib/rbac";
 import type { CurrentUser } from "@/lib/session";
-import { SignOutButton } from "./SignOutButton";
+import { prisma } from "@/lib/prisma";
 import { HeaderTimers } from "./HeaderTimers";
 import { DueBanner } from "./DueBanner";
+import { ShellFrame, type NavItem } from "./ShellFrame";
+import { Icon } from "./ui/Icon";
 
 interface Crumb {
   label: string;
   href?: string;
 }
 
-export function AppShell({
+const NAV: Array<NavItem & { permission?: Permission }> = [
+  { label: "Dashboard", href: "/", icon: "home", section: "main" },
+  { label: "Patients", href: "/patients", icon: "users", section: "main", permission: "patient:read" },
+  { label: "Breath Tests", href: "/tests", icon: "flask", section: "main", permission: "test:read" },
+  { label: "Test Types", href: "/admin/test-types", icon: "layers", section: "admin", permission: "testtype:manage" },
+  { label: "Hospitals", href: "/admin/hospitals", icon: "building", section: "admin", permission: "hospital:manage" },
+  { label: "Users", href: "/admin/users", icon: "shield", section: "admin", permission: "user:manage" },
+  { label: "Audit Log", href: "/admin/audit", icon: "history", section: "admin", permission: "audit:read" },
+];
+
+export async function AppShell({
   user,
   breadcrumbs,
   children,
@@ -20,53 +32,45 @@ export function AppShell({
   children: React.ReactNode;
 }) {
   const canManageTimers = can(user.role, "test:timer");
+  const nav: NavItem[] = NAV.filter((n) => !n.permission || can(user.role, n.permission)).map((n) => ({
+    label: n.label,
+    href: n.href,
+    icon: n.icon,
+    section: n.section,
+  }));
+  const hospital = user.hospitalId
+    ? await prisma.hospital.findUnique({ where: { id: user.hospitalId }, select: { name: true } })
+    : null;
+
   return (
-    <div className="min-h-screen">
-      <header className="sticky top-0 z-20 border-b border-clinical-border bg-white/90 backdrop-blur supports-[backdrop-filter]:bg-white/70">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-          <Link href="/" className="group flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-md bg-brand text-sm font-bold text-white shadow-sm transition-transform duration-300 group-hover:scale-105 group-hover:rotate-3">
-              S
-            </div>
-            <div>
-              <p className="text-sm font-semibold text-slate-900 transition-colors group-hover:text-brand">
-                QuinTron Breath Test
-              </p>
-              <p className="text-xs text-slate-500">Specter Clinical Platform</p>
-            </div>
-          </Link>
-          <div className="flex items-center gap-4">
-            <HeaderTimers canManageTimers={canManageTimers} />
-            <div className="text-right">
-              <p className="text-sm font-medium text-slate-900">{user.name}</p>
-              <p className="text-xs text-slate-500">{ROLE_LABELS[user.role]}</p>
-            </div>
-            <SignOutButton />
-          </div>
-        </div>
-      </header>
-
-      <DueBanner canManageTimers={canManageTimers} />
-
-      <main className="mx-auto max-w-6xl animate-fade-in px-6 py-8">
+    <ShellFrame
+      nav={nav}
+      userName={user.name}
+      roleLabel={ROLE_LABELS[user.role]}
+      hospitalLabel={hospital?.name ?? (user.hospitalId ? null : "All hospitals")}
+      topRight={<HeaderTimers canManageTimers={canManageTimers} />}
+      banner={<DueBanner canManageTimers={canManageTimers} />}
+    >
+      <div className="animate-fade-in">
         {breadcrumbs && breadcrumbs.length > 0 && (
-          <nav className="mb-4 flex items-center gap-1 text-sm text-slate-500">
+          <nav className="mb-5 flex flex-wrap items-center gap-1.5 text-sm text-slate-500" aria-label="Breadcrumb">
             {breadcrumbs.map((c, i) => (
-              <span key={i} className="flex items-center gap-1">
-                {i > 0 && <span className="text-slate-300">/</span>}
+              <span key={i} className="flex items-center gap-1.5">
+                {i > 0 && <Icon name="chevronRight" className="h-3.5 w-3.5 text-slate-300" />}
                 {c.href ? (
-                  <Link href={c.href} className="transition-colors hover:text-brand">
+                  <Link href={c.href} className="inline-flex items-center gap-1 rounded-md px-1 transition-colors hover:text-brand-700">
+                    {i === 0 && c.label === "Home" && <Icon name="home" className="h-3.5 w-3.5" />}
                     {c.label}
                   </Link>
                 ) : (
-                  <span className="text-slate-700">{c.label}</span>
+                  <span className="px-1 font-medium text-slate-800">{c.label}</span>
                 )}
               </span>
             ))}
           </nav>
         )}
         {children}
-      </main>
-    </div>
+      </div>
+    </ShellFrame>
   );
 }

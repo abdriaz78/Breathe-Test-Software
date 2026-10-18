@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requirePermission, requestContext } from "@/lib/session";
-import { getTestDetail, STATUS_LABEL, STATUS_STYLE } from "@/lib/tests";
+import { getTestDetail } from "@/lib/tests";
 import { getTestAuditTrail } from "@/lib/workflow";
 import { summarizeResult, summarizeCh4Result, type InterpretationRules } from "@/lib/interpretation";
 import { can } from "@/lib/rbac";
@@ -11,7 +11,10 @@ import { BreathChart } from "@/components/BreathChart";
 import { CH4_TRIGGER_PPM } from "@/lib/chart-geometry";
 import { WorkflowPanel } from "@/components/WorkflowPanel";
 import { TimerPanel } from "@/components/TimerPanel";
+import { receivesReminders } from "@/lib/timers";
 import { ShareButton } from "@/components/ShareButton";
+import { Icon } from "@/components/ui/Icon";
+import { Avatar, StatusBadge } from "@/components/ui/primitives";
 
 function formatDateTime(d: Date | null | string): string {
   if (!d) return "—";
@@ -108,50 +111,56 @@ export default async function TestDetailPage({
         { label: test.testType.name },
       ]}
     >
-      <div className="mb-6 flex items-start justify-between">
-        <div>
-          <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-semibold text-slate-900">{test.testType.name}</h1>
-            <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${STATUS_STYLE[test.status]}`}>
-              {STATUS_LABEL[test.status]}
-            </span>
+      <section className="card relative mb-6 overflow-visible p-0 animate-fade-in-up">
+        <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-2xl">
+          <div className="absolute -right-16 -top-20 h-56 w-56 rounded-full bg-brand-200/40 blur-3xl" />
+          <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-brand-400 via-brand-600 to-accent-500" />
+        </div>
+        <div className="relative flex flex-col gap-5 p-6 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex items-center gap-4">
+            <Avatar name={test.patient.name} size="lg" />
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-3">
+                <h1 className="font-display text-2xl font-bold tracking-tight text-slate-900 sm:text-[28px]">{test.testType.name}</h1>
+                <StatusBadge status={test.status} />
+              </div>
+              <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-slate-500">
+                <Link href={`/patients/${test.patient.id}`} className="font-semibold text-slate-800 transition-colors hover:text-brand-700">
+                  {test.patient.name}
+                </Link>
+                <span className="rounded-md bg-slate-100 px-2 py-0.5 font-mono text-xs text-slate-700">MRN {test.patient.mrn}</span>
+              </p>
+            </div>
           </div>
-          <p className="text-sm text-slate-500">
-            {test.patient.name}{" "}
-            <span className="font-mono">(MRN {test.patient.mrn})</span>
-          </p>
+          <div className="relative flex flex-wrap items-center gap-2">
+            {can(user.role, "report:export") && (
+              <>
+                <a
+                  href={`/api/tests/${test.id}/report`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="btn-primary"
+                >
+                  <Icon name="fileText" className="h-4 w-4" /> Download PDF
+                </a>
+                <a href={`/api/tests/${test.id}/samples.csv`} className="btn-secondary">
+                  <Icon name="download" className="h-4 w-4" /> Export CSV
+                </a>
+              </>
+            )}
+            {can(user.role, "report:share") && (
+              <ShareButton testId={test.id} patientMrn={test.patient.mrn} />
+            )}
+            <Link href={`/patients/${test.patient.id}`} className="btn-secondary">
+              <Icon name="users" className="h-4 w-4" /> View patient
+            </Link>
+          </div>
         </div>
-        <div className="relative flex items-center gap-3">
-          {can(user.role, "report:export") && (
-            <>
-              <a
-                href={`/api/tests/${test.id}/report`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="btn-primary"
-              >
-                Download PDF
-              </a>
-              <a
-                href={`/api/tests/${test.id}/samples.csv`}
-                className="btn-secondary"
-              >
-                Export CSV
-              </a>
-            </>
-          )}
-          {can(user.role, "report:share") && (
-            <ShareButton testId={test.id} patientMrn={test.patient.mrn} />
-          )}
-          <Link href={`/patients/${test.patient.id}`} className="btn-secondary">
-            View patient
-          </Link>
-        </div>
-      </div>
+      </section>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <section className="card lg:col-span-2">
-          <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-slate-400">
+          <h2 className="mb-4 font-display text-base font-semibold text-slate-900">
             Test setup
           </h2>
           <dl className="grid grid-cols-1 gap-x-8 gap-y-4 sm:grid-cols-2">
@@ -190,7 +199,7 @@ export default async function TestDetailPage({
         </section>
 
         <section className="card">
-          <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-slate-400">
+          <h2 className="mb-4 font-display text-base font-semibold text-slate-900">
             Patient
           </h2>
           <dl className="space-y-3">
@@ -206,7 +215,7 @@ export default async function TestDetailPage({
 
       {(resultSummary || ch4Result) && (
         <section className="card mt-6">
-          <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-400">
+          <h2 className="mb-2 font-display text-base font-semibold text-slate-900">
             Test result
           </h2>
           {resultSummary && (
@@ -255,14 +264,14 @@ export default async function TestDetailPage({
         return (
           <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
             <section className="card">
-              <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-slate-400">
+              <h2 className="mb-4 font-display text-base font-semibold text-slate-900">
                 H₂ over time
               </h2>
               <BreathChart samples={chartSamples} series={["h2"]} h2RiseThreshold={h2Threshold} />
             </section>
             <section className="card">
               <div className="mb-4 flex items-center justify-between">
-                <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-400">
+                <h2 className="font-display text-base font-semibold text-slate-900">
                   CH₄ over time
                 </h2>
                 {ch4Result && (
@@ -283,12 +292,15 @@ export default async function TestDetailPage({
 
       {test.status !== "FINALIZED" && (
         <section className="card mt-6">
-          <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-slate-400">
+          <h2 className="mb-4 font-display text-base font-semibold text-slate-900">
             Sample collection timer
           </h2>
           <TimerPanel
             testId={test.id}
             canManage={can(user.role, "test:timer")}
+            canDelete={can(user.role, "timer:delete")}
+            showReminders={receivesReminders(user, test.createdById)}
+            ownerName={test.createdByName}
             timer={{
               startedAt: test.timer.startedAt?.toISOString() ?? null,
               intervalMinutes: test.timer.intervalMinutes,
@@ -302,7 +314,7 @@ export default async function TestDetailPage({
 
       <section className="card mt-6">
         <div className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-400">
+          <h2 className="font-display text-base font-semibold text-slate-900">
             Samples
           </h2>
           <div className="flex items-center gap-3">
@@ -331,7 +343,7 @@ export default async function TestDetailPage({
       </section>
 
       <section className="card mt-6">
-        <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-slate-400">
+        <h2 className="mb-4 font-display text-base font-semibold text-slate-900">
           Diagnosis &amp; physician review
         </h2>
         <WorkflowPanel
@@ -345,7 +357,7 @@ export default async function TestDetailPage({
 
       {showAudit && (
         <section className="card mt-6">
-          <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-slate-400">
+          <h2 className="mb-4 font-display text-base font-semibold text-slate-900">
             Audit trail
           </h2>
           {auditTrail.length === 0 ? (

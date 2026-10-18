@@ -18,7 +18,7 @@ export const patientInputSchema = z.object({
   dob: z
     .string()
     .refine((v) => !Number.isNaN(Date.parse(v)), "Valid date of birth is required"),
-  gender: z.enum(["MALE", "FEMALE", "OTHER", "UNDISCLOSED"]),
+  gender: z.enum(["MALE", "FEMALE", "OTHER", "UNDISCLOSED"], { errorMap: () => ({ message: "Please select a gender" }) }),
   weightKg: z
     .union([z.coerce.number().positive().max(1000), z.literal("").transform(() => undefined)])
     .optional(),

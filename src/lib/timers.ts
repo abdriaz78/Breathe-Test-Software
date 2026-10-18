@@ -62,7 +62,16 @@ export function dueAt(startedAt: Date, intervalMinutes: number, index: number): 
 }
 
 /**
- * Every timer that is still counting down, for the header widget.
+ * Reminders are personal: only the nurse who created a test is reminded about
+ * its samples. Admins, physicians, support and other nurses never are.
+ */
+export function receivesReminders(actor: Pick<CurrentUser, "id" | "role">, testCreatedById: string): boolean {
+  return actor.role === "NURSE" && actor.id === testCreatedById;
+}
+
+/**
+ * Every timer that is still counting down and belongs to the actor (see
+ * receivesReminders), for the header widget, due banner and tests list.
  *
  * Deliberately does NOT record an audit entry: this is polled every ~30s by
  * every open tab and would swamp AuditLog. Viewing a test's PHI is already
@@ -70,9 +79,11 @@ export function dueAt(startedAt: Date, intervalMinutes: number, index: number): 
  */
 export async function listActiveTimers(actor: CurrentUser): Promise<ActiveTimer[]> {
   authorize(actor.role, "test:read");
+  if (actor.role !== "NURSE") return [];
 
   const rows = await prisma.breathTest.findMany({
     where: {
+      createdById: actor.id,
       status: { not: "FINALIZED" },
       timerStartedAt: { not: null },
       timerEndedAt: null,
@@ -231,6 +242,60 @@ export async function acknowledgeSample(
     actorRole: actor.role,
     summary: `Acknowledged sample ${sampleIndex} of ${total - 1}`,
     metadata: { sampleIndex, totalSamples: total, completed: isLast },
+    ...ctx,
+  });
+}
+
+/**
+ * Delete a test's sample collection reminders (admin only). Clears the whole
+ * schedule rather than just ending it, so the reminders disappear everywhere
+ * and the test can be given a fresh schedule later. Sample data is untouched.
+ */
+export async function deleteTimer(actor: CurrentUser, testId: string, ctx: Ctx): Promise<void> {
+  authorize(actor.role, "timer:delete");
+
+  const test = await prisma.breathTest.findUnique({
+    where: { id: testId },
+    select: {
+      status: true,
+      timerStartedAt: true,
+      timerIntervalMin: true,
+      timerTotalSamples: true,
+      timerAckedIndex: true,
+      timerEndedAt: true,
+      patient: { select: { hospitalId: true } },
+    },
+  });
+  if (!test) throw new Error("Test not found.");
+  if (isOutsideScope(actor, test.patient.hospitalId)) throw new Error("Test not found.");
+  if (test.status === "FINALIZED") throw new ReportLockedError();
+  if (!test.timerStartedAt) throw new Error("This test has no sample reminders to delete.");
+
+  await prisma.breathTest.update({
+    where: { id: testId },
+    data: {
+      timerStartedAt: null,
+      timerTotalSamples: null,
+      timerAckedIndex: 0,
+      timerEndedAt: null,
+    },
+  });
+
+  await recordAudit({
+    action: "DELETE",
+    entity: "BreathTest",
+    entityId: testId,
+    breathTestId: testId,
+    actorId: actor.id,
+    actorRole: actor.role,
+    summary: "Deleted sample collection reminders",
+    metadata: {
+      startedAt: test.timerStartedAt.toISOString(),
+      intervalMinutes: test.timerIntervalMin,
+      totalSamples: test.timerTotalSamples,
+      ackedIndex: test.timerAckedIndex,
+      wasRunning: !test.timerEndedAt,
+    },
     ...ctx,
   });
 }

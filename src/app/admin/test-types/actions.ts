@@ -5,6 +5,7 @@ import { requireUser, requestContext } from "@/lib/session";
 import {
   createTestType, updateTestType, setTestTypeActive, testTypeSchema,
 } from "@/lib/admin-testtypes";
+import { userMessage } from "@/lib/errors";
 
 export interface TestTypeFormState {
   error?: string;
@@ -45,7 +46,7 @@ export async function createTestTypeAction(
     const ctx = await requestContext();
     await createTestType(actor, parsed.data, ctx);
   } catch (err) {
-    return { error: err instanceof Error ? err.message : "Failed to create test type." };
+    return { error: userMessage(err, "Failed to create test type.") };
   }
   revalidatePath("/admin/test-types");
   return { ok: "Test type created." };
@@ -65,7 +66,7 @@ export async function updateTestTypeAction(
     const ctx = await requestContext();
     await updateTestType(actor, id, parsed.data, ctx);
   } catch (err) {
-    return { error: err instanceof Error ? err.message : "Failed to update test type." };
+    return { error: userMessage(err, "Failed to update test type.") };
   }
   revalidatePath("/admin/test-types");
   return { ok: "Saved." };

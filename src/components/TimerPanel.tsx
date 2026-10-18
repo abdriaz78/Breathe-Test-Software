@@ -3,6 +3,7 @@
 import { useActionState, useState, useTransition } from "react";
 import {
   acknowledgeSampleAction,
+  deleteTimerAction,
   startTimerAction,
   type TimerFormState,
 } from "@/app/tests/[id]/timer-actions";
@@ -31,10 +32,17 @@ export function TimerPanel({
   testId,
   timer,
   canManage,
+  canDelete = false,
+  showReminders,
+  ownerName,
 }: {
   testId: string;
   timer: TimerState;
   canManage: boolean;
+  canDelete?: boolean;
+  /** Only the nurse who created the test gets the live countdown and due alerts. */
+  showReminders: boolean;
+  ownerName: string;
 }) {
   const { timers, remainingMs, refresh } = useTimers();
   const [state, formAction, starting] = useActionState<TimerFormState, FormData>(
@@ -46,7 +54,7 @@ export function TimerPanel({
 
   // The live entry (if any) comes from the shared poll so this panel counts down
   // in step with the header.
-  const live = timers.find((t) => t.testId === testId);
+  const live = showReminders ? timers.find((t) => t.testId === testId) : undefined;
 
   if (!timer.startedAt || timer.endedAt) {
     const finished = Boolean(timer.startedAt && timer.endedAt);
@@ -113,20 +121,41 @@ export function TimerPanel({
     });
   }
 
+  function removeReminders() {
+    if (!window.confirm("Delete all sample reminders for this test? This cannot be undone.")) return;
+    setAckError(null);
+    startAck(async () => {
+      const res = await deleteTimerAction(testId);
+      if (res.error) setAckError(res.error);
+      refresh();
+    });
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-4">
+        {!showReminders ? (
+          <p className="text-sm text-slate-500">
+            Reminders for this test go to {ownerName}.
+          </p>
+        ) : (
         <div
-          className={`rounded-lg px-4 py-2 ${
+          className={`relative overflow-hidden rounded-2xl px-5 py-3 ring-1 ring-inset ${
             live && remainingMs(live) <= 0
-              ? "bg-red-50 text-red-700"
-              : "bg-slate-100 text-slate-700"
+              ? "bg-gradient-to-br from-red-50 to-rose-100 text-red-700 ring-red-200"
+              : "bg-gradient-to-br from-brand-50 to-sky-50 text-brand-900 ring-brand-100"
           }`}
         >
-          <p className="text-xs font-medium uppercase tracking-wide opacity-70">
+          {live && remainingMs(live) <= 0 && (
+            <span className="absolute right-3 top-3 flex h-2.5 w-2.5">
+              <span className="absolute inline-flex h-full w-full animate-pulse-ring rounded-full bg-red-500" />
+              <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-red-500" />
+            </span>
+          )}
+          <p className="text-[11px] font-semibold uppercase tracking-wider opacity-70">
             {live ? `Next: sample ${live.nextSampleIndex}` : "Collection complete"}
           </p>
-          <p className="font-mono text-2xl tabular-nums">
+          <p className="font-display text-3xl font-bold tabular-nums">
             {live
               ? remainingMs(live) <= 0
                 ? "DUE NOW"
@@ -134,12 +163,13 @@ export function TimerPanel({
               : "—"}
           </p>
         </div>
+        )}
         <p className="text-sm text-slate-500">
           Started {clockOf(timer.startedAt)} — every {timer.intervalMinutes} min,{" "}
           {total} samples.
         </p>
         <div className="flex-1" />
-        {canManage && live && (
+        {canManage && showReminders && live && (
           <button
             type="button"
             className="btn-primary"
@@ -149,13 +179,40 @@ export function TimerPanel({
             {ackPending ? "Saving…" : `Acknowledge sample ${nextIndex}`}
           </button>
         )}
+        {canDelete && (
+          <button
+            type="button"
+            disabled={ackPending}
+            onClick={removeReminders}
+            className="btn-danger"
+          >
+            Delete reminders
+          </button>
+        )}
       </div>
+
+      {total > 0 && (
+        <div>
+          <div className="mb-1.5 flex items-center justify-between text-xs font-medium text-slate-500">
+            <span>Collection progress</span>
+            <span className="tabular-nums">
+              {Math.min(timer.ackedIndex + 1, total)} of {total} samples
+            </span>
+          </div>
+          <div className="h-2 overflow-hidden rounded-full bg-slate-100">
+            <div
+              className="h-full rounded-full bg-gradient-to-r from-brand-400 to-brand-600 transition-all duration-700"
+              style={{ width: `${(Math.min(timer.ackedIndex + 1, total) / total) * 100}%` }}
+            />
+          </div>
+        </div>
+      )}
 
       {ackError && <p className="text-sm text-red-700">{ackError}</p>}
 
-      <div className="overflow-hidden rounded-lg border border-clinical-border">
+      <div className="overflow-hidden rounded-xl border border-clinical-border">
         <table className="min-w-full divide-y divide-clinical-border text-sm">
-          <thead className="bg-slate-50 text-left text-xs font-medium uppercase tracking-wide text-slate-500">
+          <thead className="bg-slate-50/80 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500">
             <tr>
               <th className="px-4 py-2">Sample</th>
               <th className="px-4 py-2">Interval</th>
@@ -185,6 +242,8 @@ export function TimerPanel({
                   <td className="px-4 py-2">
                     {done ? (
                       <span className="text-emerald-700">✓ Collected</span>
+                    ) : !showReminders ? (
+                      <span className="text-slate-400">Pending</span>
                     ) : isNext && live && remainingMs(live) <= 0 ? (
                       <span className="font-medium text-red-700">Due now</span>
                     ) : isNext ? (

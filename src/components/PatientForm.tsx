@@ -78,7 +78,7 @@ export function PatientForm({
     >
       {patient && <input type="hidden" name="patientId" value={patient.id} />}
       {state.error && (
-        <div className="animate-fade-in-up rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+        <div className="animate-fade-in-up rounded-xl border border-red-200 bg-red-50 px-3.5 py-2.5 text-sm text-red-700">
           {state.error}
         </div>
       )}
@@ -108,7 +108,7 @@ export function PatientForm({
             <option value="OTHER">Other</option>
             <option value="UNDISCLOSED">Undisclosed</option>
           </select>
-          {err("gender") && <p className="mt-1 text-xs text-red-600">{err("gender")}</p>}
+          {err("gender") && <p className="field-error">{err("gender")}</p>}
         </div>
 
         <Field
@@ -153,7 +153,7 @@ export function PatientForm({
             </select>
           )}
           {err("hospitalId") && (
-            <p className="mt-1 text-xs text-red-600">{err("hospitalId")}</p>
+            <p className="field-error">{err("hospitalId")}</p>
           )}
         </div>
 
@@ -197,7 +197,7 @@ export function PatientForm({
                 <button
                   type="button"
                   onClick={() => setPhysicianMode("select")}
-                  className="whitespace-nowrap text-sm text-brand hover:underline"
+                  className="whitespace-nowrap text-sm font-semibold text-brand-700 hover:text-brand-800 hover:underline"
                 >
                   Choose from list
                 </button>
@@ -205,7 +205,7 @@ export function PatientForm({
             </div>
           )}
           {err("referringPhysician") && (
-            <p className="mt-1 text-xs text-red-600">{err("referringPhysician")}</p>
+            <p className="field-error">{err("referringPhysician")}</p>
           )}
         </div>
       </div>
@@ -269,7 +269,7 @@ function Field({
         defaultValue={defaultValue}
         className="input"
       />
-      {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
+      {error && <p className="field-error">{error}</p>}
     </div>
   );
 }

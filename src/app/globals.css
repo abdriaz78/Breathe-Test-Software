@@ -3,35 +3,115 @@
 @tailwind utilities;
 
 :root {
-  --background: #f8fafc;
+  --background: #f4f7fb;
   --foreground: #0f172a;
 }
 
 body {
   color: var(--foreground);
-  background: var(--background);
-  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  background-color: var(--background);
+  background-image:
+    radial-gradient(1200px 600px at 100% -10%, rgba(13, 148, 136, 0.07), transparent 60%),
+    radial-gradient(900px 500px at -10% 110%, rgba(14, 165, 233, 0.06), transparent 60%);
+  background-attachment: fixed;
+  font-family: var(--font-sans), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+h1, h2, h3 {
+  font-family: var(--font-display), var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+  letter-spacing: -0.01em;
+}
+
+input[type="checkbox"],
+input[type="radio"] {
+  accent-color: #0d9488;
+}
+
+/* A hidden input placed first in a spaced form must not push the first
+   visible field down (Tailwind's space-y-* counts it as a sibling). */
+form > input[type="hidden"]:first-child + * {
+  margin-top: 0 !important;
+}
+
+::selection {
+  background: rgba(13, 148, 136, 0.18);
 }
 
 @layer components {
   .btn-primary {
-    @apply inline-flex items-center justify-center rounded-md bg-brand px-4 py-2 text-sm font-medium text-white shadow-sm transition-all duration-200 hover:bg-brand-dark hover:shadow-md hover:-translate-y-px active:translate-y-0 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0 disabled:hover:shadow-sm;
+    @apply inline-flex items-center justify-center gap-2 rounded-lg bg-gradient-to-b from-brand-500 to-brand-700 px-4 py-2 text-sm font-semibold text-white shadow-glow ring-1 ring-inset ring-white/10 transition-all duration-200 hover:-translate-y-px hover:from-brand-500 hover:to-brand-800 hover:shadow-lg active:translate-y-0 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0;
   }
   .btn-secondary {
-    @apply inline-flex items-center justify-center rounded-md border border-clinical-border bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm transition-all duration-200 hover:border-slate-300 hover:bg-slate-50 hover:-translate-y-px active:translate-y-0 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2;
+    @apply inline-flex items-center justify-center gap-2 rounded-lg border border-clinical-border bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm transition-all duration-200 hover:-translate-y-px hover:border-brand-200 hover:bg-brand-50/60 hover:text-brand-800 active:translate-y-0 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  .btn-ghost {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-slate-600 transition-colors duration-150 hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand;
+  }
+  .btn-danger {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg border border-red-200 bg-white px-3 py-1.5 text-sm font-medium text-red-600 shadow-sm transition-all duration-200 hover:-translate-y-px hover:border-red-300 hover:bg-red-50 active:translate-y-0 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400 disabled:cursor-not-allowed disabled:opacity-50;
   }
   .input {
-    @apply block w-full rounded-md border border-clinical-border bg-white px-3 py-2 text-sm shadow-sm transition-colors duration-150 focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand;
+    @apply block w-full rounded-lg border border-clinical-border bg-white/90 px-3 py-2 text-sm text-slate-900 shadow-sm transition-all duration-150 placeholder:text-slate-400 hover:border-slate-300 focus:border-brand focus:bg-white focus:outline-none focus:ring-4 focus:ring-brand/15;
+  }
+  /* Native selects get a custom chevron to match the text inputs. */
+  select.input {
+    @apply cursor-pointer appearance-none bg-no-repeat pr-9;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    background-position: right 0.65rem center;
+    background-size: 1rem;
+  }
+  /* Inline validation message. The field it belongs to turns red (see below). */
+  .field-error {
+    @apply mt-1.5 flex items-center gap-1 text-xs font-medium text-red-600;
+  }
+  .field-error::before {
+    content: "";
+    @apply h-3.5 w-3.5 shrink-0 bg-current;
+    -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Cpath d='M12 8v4M12 16h.01'/%3E%3C/svg%3E") center / contain no-repeat;
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Cpath d='M12 8v4M12 16h.01'/%3E%3C/svg%3E") center / contain no-repeat;
+  }
+  div:has(> .field-error) .input {
+    @apply border-red-300 bg-red-50/30 focus:border-red-400 focus:ring-red-200/60;
   }
   .label {
-    @apply mb-1 block text-sm font-medium text-slate-700;
+    @apply mb-1.5 block text-sm font-medium text-slate-700;
   }
   .card {
-    @apply rounded-lg border border-clinical-border bg-white p-6 shadow-sm;
+    @apply rounded-2xl border border-white/70 bg-white/95 p-6 shadow-soft ring-1 ring-slate-900/[0.04] backdrop-blur;
   }
   /* Cards that link somewhere — gentle lift + brand accent on hover. */
   .card-interactive {
-    @apply transition-all duration-200 hover:-translate-y-1 hover:border-brand hover:shadow-lg;
+    @apply transition-all duration-300 hover:-translate-y-1 hover:shadow-lift hover:ring-brand/30;
+  }
+  .badge {
+    @apply inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold;
+  }
+  /* Data tables: wrap in .table-shell, put .table-modern on the <table>. */
+  .table-shell {
+    @apply overflow-x-auto rounded-2xl border border-white/70 bg-white shadow-soft ring-1 ring-slate-900/[0.04];
+  }
+  .table-modern {
+    @apply min-w-full text-sm;
+  }
+  .table-modern thead {
+    @apply bg-slate-50/80 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500;
+  }
+  .table-modern th {
+    @apply px-5 py-3;
+  }
+  .table-modern td {
+    @apply px-5 py-3.5;
+  }
+  .table-modern tbody tr {
+    @apply border-t border-slate-100 transition-colors duration-150 hover:bg-brand-50/50;
+  }
+  .section-title {
+    @apply flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-slate-500;
+  }
+  .chip {
+    @apply inline-flex items-center gap-2 rounded-full border px-3.5 py-1.5 text-sm font-medium transition-all duration-150 active:scale-95;
   }
 }
 
@@ -49,6 +129,17 @@ body {
 .stagger-children > *:nth-child(7) { animation-delay: 0.28s; }
 .stagger-children > *:nth-child(8) { animation-delay: 0.32s; }
 .stagger-children > *:nth-child(n + 9) { animation-delay: 0.36s; }
+
+/* Top navigation progress bar (NavProgress): eases toward 85% while waiting. */
+.nav-progress-run {
+  width: 0;
+  animation: nav-progress 3s cubic-bezier(0.1, 0.7, 0.3, 1) forwards;
+}
+@keyframes nav-progress {
+  0% { width: 0; }
+  20% { width: 35%; }
+  100% { width: 85%; }
+}
 
 /* Loading shimmer overlay — add on top of a slate placeholder block. */
 .shimmer {
@@ -81,6 +172,7 @@ body {
   }
   .btn-primary:hover,
   .btn-secondary:hover,
+  .btn-danger:hover,
   .card-interactive:hover {
     transform: none !important;
   }

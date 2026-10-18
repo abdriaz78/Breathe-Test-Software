@@ -63,7 +63,7 @@ export function HeaderTimers({ canManageTimers }: { canManageTimers: boolean }) 
       </button>
 
       {open && (
-        <div className="animate-fade-in-up absolute right-0 z-30 mt-2 w-96 overflow-hidden rounded-lg border border-clinical-border bg-white shadow-lg">
+        <div className="animate-fade-in-up absolute right-0 z-30 mt-2 w-96 table-shell shadow-lg">
           <p className="border-b border-clinical-border bg-slate-50 px-4 py-2 text-xs font-medium uppercase tracking-wide text-slate-500">
             Sample collection timers
           </p>
@@ -100,7 +100,7 @@ export function HeaderTimers({ canManageTimers }: { canManageTimers: boolean }) 
                     <Link
                       href={`/tests/${t.testId}/samples`}
                       onClick={() => setOpen(false)}
-                      className="text-brand hover:underline"
+                      className="font-semibold text-brand-700 hover:text-brand-800 hover:underline"
                     >
                       Enter sample
                     </Link>

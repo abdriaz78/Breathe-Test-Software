@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireUser, requestContext } from "@/lib/session";
 import { saveDiagnosis } from "@/lib/workflow";
+import { userMessage } from "@/lib/errors";
 
 export interface WorkflowState {
   error?: string;
@@ -27,7 +28,7 @@ export async function saveDiagnosisAction(
       ctx
     );
   } catch (err) {
-    return { error: err instanceof Error ? err.message : "Failed to save." };
+    return { error: userMessage(err, "Failed to save.") };
   }
   revalidatePath(`/tests/${testId}`);
   return { ok: "Saved." };

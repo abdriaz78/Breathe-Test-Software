@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { requireUser, requestContext } from "@/lib/session";
 import { createTest, testInputSchema } from "@/lib/tests";
+import { userMessage } from "@/lib/errors";
 
 export interface TestFormState {
   error?: string;
@@ -44,7 +45,7 @@ export async function createTestAction(
     const result = await createTest(user, parsed.data, ctx);
     newId = result.id;
   } catch (err) {
-    return { error: err instanceof Error ? err.message : "Failed to create test." };
+    return { error: userMessage(err, "Failed to create test.") };
   }
 
   redirect(`/tests/${newId}`);

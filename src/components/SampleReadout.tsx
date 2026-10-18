@@ -27,7 +27,7 @@ export function SampleReadout({ samples }: { samples: ReadonlySample[] }) {
   return (
     <div className="mt-4 overflow-x-auto rounded-lg border border-clinical-border">
       <table className="min-w-full text-sm">
-        <thead className="bg-slate-50 text-left text-xs font-medium uppercase tracking-wide text-slate-500">
+        <thead className="bg-slate-50/80 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500">
           <tr>
             <th className="px-3 py-2">#</th>
             <th className="px-3 py-2">Interval (min)</th>

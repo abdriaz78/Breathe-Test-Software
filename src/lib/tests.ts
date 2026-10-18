@@ -204,6 +204,7 @@ export async function getTestDetail(
     testType: t.testType,
     departmentName: t.department?.name ?? null,
     technician: t.technician,
+    createdById: t.createdById,
     createdByName: t.createdBy.name,
     signedBy: t.signedBy,
     samples: t.samples,
@@ -260,7 +261,20 @@ export const STATUS_LABEL: Record<ReportStatus, string> = {
 };
 
 export const STATUS_STYLE: Record<ReportStatus, string> = {
-  DRAFT: "bg-slate-100 text-slate-700",
-  IN_PROGRESS: "bg-amber-100 text-amber-800",
-  FINALIZED: "bg-emerald-100 text-emerald-800",
+  DRAFT: "bg-slate-100 text-slate-700 ring-1 ring-inset ring-slate-200",
+  IN_PROGRESS: "bg-amber-50 text-amber-800 ring-1 ring-inset ring-amber-200",
+  FINALIZED: "bg-emerald-50 text-emerald-800 ring-1 ring-inset ring-emerald-200",
 };
+
+/** Per-status test counts for the list filter pills (same scoping as listTests). */
+export async function countTestsByStatus(actor: CurrentUser): Promise<Record<ReportStatus, number>> {
+  authorize(actor.role, "test:read");
+  const grouped = await prisma.breathTest.groupBy({
+    by: ["status"],
+    where: { patient: hospitalScope(actor) },
+    _count: { _all: true },
+  });
+  const counts: Record<ReportStatus, number> = { DRAFT: 0, IN_PROGRESS: 0, FINALIZED: 0 };
+  for (const g of grouped) counts[g.status] = g._count._all;
+  return counts;
+}

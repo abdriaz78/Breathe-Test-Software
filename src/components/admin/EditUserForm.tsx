@@ -29,13 +29,13 @@ export function EditUserForm({ user }: { user: EditableUser }) {
   return (
     <div className="max-w-2xl space-y-8">
       <section className="card">
-        <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-slate-400">
+        <h2 className="mb-4 font-display text-base font-semibold text-slate-900">
           Profile
         </h2>
         <form action={profileAction} className="space-y-4">
           <input type="hidden" name="userId" value={user.id} />
           {profileState.error && (
-            <div className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{profileState.error}</div>
+            <div className="rounded-xl border border-red-200 bg-red-50 px-3.5 py-2.5 text-sm text-red-700">{profileState.error}</div>
           )}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <F label="Full name" name="name" defaultValue={user.name} error={profileErr("name")} required />
@@ -55,13 +55,13 @@ export function EditUserForm({ user }: { user: EditableUser }) {
       </section>
 
       <section className="card">
-        <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-slate-400">
+        <h2 className="mb-4 font-display text-base font-semibold text-slate-900">
           Reset password
         </h2>
         <form action={pwAction} className="space-y-4">
           <input type="hidden" name="userId" value={user.id} />
           {pwState.error && (
-            <div className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{pwState.error}</div>
+            <div className="rounded-xl border border-red-200 bg-red-50 px-3.5 py-2.5 text-sm text-red-700">{pwState.error}</div>
           )}
           {pwState.ok && (
             <div className="rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
@@ -99,7 +99,7 @@ function F({
         placeholder={placeholder}
         defaultValue={defaultValue}
       />
-      {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
+      {error && <p className="field-error">{error}</p>}
     </div>
   );
 }

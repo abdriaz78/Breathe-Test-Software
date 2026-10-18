@@ -1,6 +1,7 @@
 import { requirePermission } from "@/lib/session";
 import { listTestTypes } from "@/lib/admin-testtypes";
 import { AppShell } from "@/components/AppShell";
+import { PageHeader } from "@/components/ui/primitives";
 import { TestTypesAdmin, type AdminTestType } from "@/components/admin/TestTypesAdmin";
 
 interface RulesShape {
@@ -27,11 +28,16 @@ export default async function TestTypesAdminPage() {
 
   return (
     <AppShell user={user} breadcrumbs={[{ label: "Home", href: "/" }, { label: "Test Types" }]}>
-      <h1 className="mb-1 text-2xl font-semibold text-slate-900">Test-type catalog</h1>
-      <p className="mb-6 text-sm text-slate-500">
-        Manage built-in and custom test types. Thresholds drive interpretation-support
+      <PageHeader
+        icon="layers"
+        title={<>Test-type catalog</>}
+        description={
+          <>
+            Manage built-in and custom test types. Thresholds drive interpretation-support
         flags only — they never produce an automatic diagnosis.
-      </p>
+          </>
+        }
+      />
       <TestTypesAdmin testTypes={rows} />
     </AppShell>
   );

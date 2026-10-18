@@ -26,8 +26,8 @@ export function DueBanner({ canManageTimers }: { canManageTimers: boolean }) {
   }
 
   return (
-    <div className="sticky top-[73px] z-10 border-b border-red-200 bg-red-50">
-      <div className="mx-auto max-w-6xl space-y-2 px-6 py-3">
+    <div className="sticky top-16 z-10 border-b border-red-200 bg-gradient-to-r from-red-50 via-rose-50 to-red-50">
+      <div className="mx-auto max-w-7xl space-y-2 px-4 py-3 sm:px-6 lg:px-8">
         {due.map((t) => (
           <div
             key={`${t.testId}:${t.nextSampleIndex}`}

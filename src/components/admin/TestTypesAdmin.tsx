@@ -47,11 +47,11 @@ function CreateCard() {
   const err = (f: string) => state.fieldErrors?.[f];
   return (
     <section className="card">
-      <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-slate-400">
+      <h2 className="mb-4 font-display text-base font-semibold text-slate-900">
         Add custom test type
       </h2>
       <form action={action} className="space-y-4">
-        {state.error && <div className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{state.error}</div>}
+        {state.error && <div className="rounded-xl border border-red-200 bg-red-50 px-3.5 py-2.5 text-sm text-red-700">{state.error}</div>}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <TextF label="Name" name="name" error={err("name")} required />
           <TextF label="Default substrate" name="defaultSubstrate" />
@@ -96,7 +96,7 @@ function EditCard({ t }: { t: AdminTestType }) {
         <form action={toggleTestTypeActiveAction}>
           <input type="hidden" name="id" value={t.id} />
           <input type="hidden" name="active" value={(!t.isActive).toString()} />
-          <button type="submit" className="text-sm text-brand hover:underline">
+          <button type="submit" className="text-sm font-semibold text-brand-700 hover:text-brand-800 hover:underline">
             {t.isActive ? "Disable" : "Enable"}
           </button>
         </form>
@@ -104,7 +104,7 @@ function EditCard({ t }: { t: AdminTestType }) {
 
       <form action={action} className="space-y-4">
         <input type="hidden" name="id" value={t.id} />
-        {state.error && <div className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{state.error}</div>}
+        {state.error && <div className="rounded-xl border border-red-200 bg-red-50 px-3.5 py-2.5 text-sm text-red-700">{state.error}</div>}
         {state.ok && !state.error && <div className="rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{state.ok}</div>}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <TextF label="Name" name="name" def={t.name} error={err("name")} required />
@@ -129,7 +129,7 @@ function TextF({
         {label} {required && <span className="text-red-500">*</span>}
       </label>
       <input name={name} defaultValue={def} className="input" />
-      {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
+      {error && <p className="field-error">{error}</p>}
     </div>
   );
 }

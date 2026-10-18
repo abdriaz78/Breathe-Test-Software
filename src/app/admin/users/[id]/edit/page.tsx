@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { requirePermission } from "@/lib/session";
 import { getUser } from "@/lib/admin-users";
 import { AppShell } from "@/components/AppShell";
+import { PageHeader } from "@/components/ui/primitives";
 import { EditUserForm } from "@/components/admin/EditUserForm";
 
 export default async function EditUserPage({
@@ -23,10 +24,15 @@ export default async function EditUserPage({
         { label: target.name },
       ]}
     >
-      <h1 className="mb-1 text-2xl font-semibold text-slate-900">Edit {target.name}</h1>
-      <p className="mb-6 text-sm text-slate-500">
-        Update profile details, or set a new temporary password.
-      </p>
+      <PageHeader
+        icon="pencil"
+        title={<>Edit {target.name}</>}
+        description={
+          <>
+            Update profile details, or set a new temporary password.
+          </>
+        }
+      />
       <EditUserForm
         user={{
           id: target.id, email: target.email, name: target.name,
