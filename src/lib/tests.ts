@@ -6,6 +6,7 @@ import { recordAudit } from "./audit";
 import type { CurrentUser } from "./session";
 import { authorize, hospitalScope, isOutsideScope } from "./session";
 import { isHospitalScoped } from "./rbac";
+import { PAGE_SIZE, matchesQuery, pageWindow, paginate, type Page } from "./pagination";
 
 // -----------------------------------------------------------------------------
 // Breath-test data-access layer. Creating a test starts the DRAFT lifecycle.
@@ -134,6 +135,51 @@ export async function listTests(
     collectionDate: t.collectionDate,
     createdAt: t.createdAt,
   }));
+}
+
+/**
+ * One page of the tests list, newest first, optionally filtered by status and
+ * searched by patient name, MRN or test type. No row cap: every test in the
+ * actor's scope is reachable.
+ */
+export async function listTestsPage(
+  actor: CurrentUser,
+  opts: { status?: ReportStatus; q?: string; page?: number } = {}
+): Promise<Page<TestListItem>> {
+  authorize(actor.role, "test:read");
+  const where = { status: opts.status, patient: hospitalScope(actor) };
+  const q = opts.q?.trim() ?? "";
+  const select = {
+    id: true,
+    status: true,
+    collectionDate: true,
+    createdAt: true,
+    patient: { select: { mrn: true, nameEnc: true } },
+    testType: { select: { name: true } },
+  } as const;
+  const toItem = (t: {
+    id: string; status: ReportStatus; collectionDate: Date | null; createdAt: Date;
+    patient: { mrn: string; nameEnc: string }; testType: { name: string };
+  }): TestListItem => ({
+    id: t.id,
+    patientName: decrypt(t.patient.nameEnc) ?? "—",
+    patientMrn: t.patient.mrn,
+    testTypeName: t.testType.name,
+    status: t.status,
+    collectionDate: t.collectionDate,
+    createdAt: t.createdAt,
+  });
+
+  if (q) {
+    const all = await prisma.breathTest.findMany({ where, orderBy: [{ createdAt: "desc" }, { id: "desc" }], select });
+    const hits = all.map(toItem).filter((t) => matchesQuery(q, t.patientName, t.patientMrn, t.testTypeName));
+    return paginate(hits, opts.page ?? 1);
+  }
+
+  const total = await prisma.breathTest.count({ where });
+  const { page, pageCount, skip } = pageWindow(total, opts.page ?? 1);
+  const rows = await prisma.breathTest.findMany({ where, orderBy: [{ createdAt: "desc" }, { id: "desc" }], skip, take: PAGE_SIZE, select });
+  return { rows: rows.map(toItem), total, page, pageCount, pageSize: PAGE_SIZE };
 }
 
 /** Full test with resolved names for the detail view. Patient name is PHI, so

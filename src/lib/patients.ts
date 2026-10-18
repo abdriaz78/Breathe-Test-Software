@@ -6,6 +6,7 @@ import { recordAudit } from "./audit";
 import type { CurrentUser } from "./session";
 import { authorize, hospitalScope, isOutsideScope } from "./session";
 import { isHospitalScoped } from "./rbac";
+import { PAGE_SIZE, matchesQuery, pageWindow, paginate, type Page } from "./pagination";
 
 // -----------------------------------------------------------------------------
 // Patient data-access layer. All PHI is encrypted on write and decrypted only
@@ -131,6 +132,41 @@ export async function listPatients(
     gender: p.gender,
     hospitalName: p.hospital.name,
   }));
+}
+
+export type PatientListRow = Pick<PatientView, "id" | "mrn" | "name" | "gender" | "hospitalName">;
+
+/**
+ * One page of the patients list, newest first, optionally searched by name,
+ * MRN or hospital. Every record in the actor's scope is reachable — unlike
+ * listPatients, there is no row cap.
+ */
+export async function listPatientsPage(
+  actor: CurrentUser,
+  opts: { q?: string; page?: number } = {}
+): Promise<Page<PatientListRow>> {
+  authorize(actor.role, "patient:read");
+  const where = hospitalScope(actor);
+  const q = opts.q?.trim() ?? "";
+  const toRow = (p: { id: string; mrn: string; nameEnc: string; gender: PatientListRow["gender"]; hospital: { name: string } }) => ({
+    id: p.id,
+    mrn: p.mrn,
+    name: decrypt(p.nameEnc) ?? "—",
+    gender: p.gender,
+    hospitalName: p.hospital.name,
+  });
+  const select = { id: true, mrn: true, nameEnc: true, gender: true, hospital: { select: { name: true } } } as const;
+
+  if (q) {
+    const all = await prisma.patient.findMany({ where, orderBy: [{ createdAt: "desc" }, { id: "desc" }], select });
+    const hits = all.map(toRow).filter((p) => matchesQuery(q, p.name, p.mrn, p.hospitalName));
+    return paginate(hits, opts.page ?? 1);
+  }
+
+  const total = await prisma.patient.count({ where });
+  const { page, pageCount, skip } = pageWindow(total, opts.page ?? 1);
+  const rows = await prisma.patient.findMany({ where, orderBy: [{ createdAt: "desc" }, { id: "desc" }], skip, take: PAGE_SIZE, select });
+  return { rows: rows.map(toRow), total, page, pageCount, pageSize: PAGE_SIZE };
 }
 
 export async function getPatient(

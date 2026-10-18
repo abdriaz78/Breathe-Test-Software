@@ -1,32 +1,62 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState, type ReactNode } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useRef, useState, useTransition, type ReactNode } from "react";
 import type { ReportStatus } from "@prisma/client";
 import { Icon } from "@/components/ui/Icon";
 import { Avatar, EmptyState, StatusBadge } from "@/components/ui/primitives";
 import { TestRowTimer } from "@/components/TestRowTimer";
 
-// Instant client-side filtering over rows the server already loaded (and
-// already scoped to the viewer's hospital). Names are encrypted at rest, so the
-// server can only search by exact MRN — this box covers name/type lookups.
+// Paged, searchable lists. Paging and search run on the server (see
+// listPatientsPage / listTestsPage), so every record is reachable no matter how
+// many exist. State lives in the URL (?q=…&page=…), so links and the back
+// button work as expected.
 
-function SearchBox({
-  value,
-  onChange,
-  placeholder,
-  count,
-  total,
-  available,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-  placeholder: string;
-  count: number;
+export interface PageInfo {
   total: number;
-  /** Total matching records on the server, when more exist than were loaded. */
-  available?: number;
-}) {
+  page: number;
+  pageCount: number;
+  pageSize: number;
+}
+
+/** Current URL with some params replaced (null removes the param). */
+function useHrefWith() {
+  const pathname = usePathname();
+  const params = useSearchParams();
+  return (changes: Record<string, string | null>) => {
+    const next = new URLSearchParams(params.toString());
+    for (const [k, v] of Object.entries(changes)) {
+      if (v === null || v === "") next.delete(k);
+      else next.set(k, v);
+    }
+    const qs = next.toString();
+    return qs ? `${pathname}?${qs}` : pathname;
+  };
+}
+
+function SearchBox({ placeholder, info }: { placeholder: string; info: PageInfo }) {
+  const router = useRouter();
+  const params = useSearchParams();
+  const hrefWith = useHrefWith();
+  const urlQ = params.get("q") ?? "";
+  const [value, setValue] = useState(urlQ);
+  const [pending, startTransition] = useTransition();
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Keep the box in sync when the URL changes elsewhere (back button, Clear),
+  // without clobbering in-progress typing such as a trailing space.
+  useEffect(() => setValue((v) => (v.trim() === urlQ ? v : urlQ)), [urlQ]);
+
+  function onChange(v: string) {
+    setValue(v);
+    if (timer.current) clearTimeout(timer.current);
+    // Wait until typing pauses, then search on the server from page 1.
+    timer.current = setTimeout(() => {
+      startTransition(() => router.replace(hrefWith({ q: v.trim() || null, page: null }), { scroll: false }));
+    }, 350);
+  }
+
   return (
     <div className="flex flex-col gap-2 border-b border-slate-100 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
       <div className="relative w-full sm:max-w-sm">
@@ -36,25 +66,88 @@ function SearchBox({
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}
-          className="input pl-9"
+          className="input pl-9 pr-9"
           aria-label={placeholder}
         />
+        {pending && (
+          <span className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin rounded-full border-2 border-brand-200 border-t-brand-600" aria-label="Searching" />
+        )}
       </div>
       <p className="text-xs font-medium text-slate-400 tabular-nums">
-        {value
-          ? `${count} of ${total} shown`
-          : available && available > total
-            ? `Latest ${total} of ${available}`
-            : `${total} total`}
+        {urlQ ? `${info.total} match${info.total === 1 ? "" : "es"}` : `${info.total} total`}
       </p>
     </div>
   );
 }
 
-function matches(q: string, ...fields: Array<string | null | undefined>) {
-  const needle = q.trim().toLowerCase();
-  if (!needle) return true;
-  return fields.some((f) => f?.toLowerCase().includes(needle));
+/** Page numbers to show: first, last, current ±1, with gaps as null. */
+function pageList(page: number, count: number): Array<number | null> {
+  const want = new Set([1, count, page - 1, page, page + 1].filter((n) => n >= 1 && n <= count));
+  const sorted = [...want].sort((a, b) => a - b);
+  const out: Array<number | null> = [];
+  sorted.forEach((n, i) => {
+    if (i > 0 && n - sorted[i - 1] > 1) out.push(null);
+    out.push(n);
+  });
+  return out;
+}
+
+function Pager({ info }: { info: PageInfo }) {
+  const hrefWith = useHrefWith();
+  if (info.total === 0) return null;
+  const from = (info.page - 1) * info.pageSize + 1;
+  const to = Math.min(info.page * info.pageSize, info.total);
+  const href = (p: number) => hrefWith({ page: p === 1 ? null : String(p) });
+  const btn = "inline-flex h-9 min-w-9 items-center justify-center rounded-lg px-2.5 text-sm font-medium transition-colors";
+
+  return (
+    <div className="flex flex-col items-center justify-between gap-3 border-t border-slate-100 px-5 py-3.5 sm:flex-row">
+      <p className="text-sm text-slate-500 tabular-nums">
+        Showing <span className="font-semibold text-slate-800">{from}–{to}</span> of{" "}
+        <span className="font-semibold text-slate-800">{info.total}</span>
+      </p>
+      {info.pageCount > 1 && (
+        <nav className="flex items-center gap-1" aria-label="Pages">
+          {info.page > 1 ? (
+            <Link href={href(info.page - 1)} scroll={false} className={`${btn} text-slate-600 hover:bg-slate-100`} aria-label="Previous page">
+              <Icon name="chevronRight" className="h-4 w-4 rotate-180" />
+            </Link>
+          ) : (
+            <span className={`${btn} text-slate-300`} aria-hidden><Icon name="chevronRight" className="h-4 w-4 rotate-180" /></span>
+          )}
+          {pageList(info.page, info.pageCount).map((n, i) =>
+            n === null ? (
+              <span key={`gap${i}`} className="px-1 text-slate-400">…</span>
+            ) : n === info.page ? (
+              <span key={n} aria-current="page" className={`${btn} bg-gradient-to-b from-brand-500 to-brand-700 text-white shadow-glow tabular-nums`}>{n}</span>
+            ) : (
+              <Link key={n} href={href(n)} scroll={false} className={`${btn} text-slate-600 tabular-nums hover:bg-slate-100`}>{n}</Link>
+            )
+          )}
+          {info.page < info.pageCount ? (
+            <Link href={href(info.page + 1)} scroll={false} className={`${btn} text-slate-600 hover:bg-slate-100`} aria-label="Next page">
+              <Icon name="chevronRight" className="h-4 w-4" />
+            </Link>
+          ) : (
+            <span className={`${btn} text-slate-300`} aria-hidden><Icon name="chevronRight" className="h-4 w-4" /></span>
+          )}
+        </nav>
+      )}
+    </div>
+  );
+}
+
+function NoMatches({ what }: { what: string }) {
+  const params = useSearchParams();
+  const hrefWith = useHrefWith();
+  return (
+    <EmptyState
+      icon="search"
+      title={`No ${what} match “${params.get("q") ?? ""}”`}
+      description="Try part of the name, the MRN, or a different spelling."
+      action={<Link href={hrefWith({ q: null, page: null })} className="btn-secondary"><Icon name="x" className="h-4 w-4" /> Clear search</Link>}
+    />
+  );
 }
 
 function fmtDate(d: string | null): string {
@@ -81,32 +174,21 @@ const GENDER_LABEL: Record<string, string> = {
 
 export function PatientsTable({
   rows,
+  info,
   emptyAction,
-  emptyTitle = "No patients registered yet",
 }: {
   rows: PatientRow[];
+  info: PageInfo;
   emptyAction?: ReactNode;
-  emptyTitle?: string;
 }) {
-  const [q, setQ] = useState("");
-  const shown = useMemo(() => rows.filter((p) => matches(q, p.name, p.mrn, p.hospitalName)), [rows, q]);
-
+  const searching = Boolean(useSearchParams().get("q"));
   return (
     <div className="table-shell animate-fade-in-up">
-      <SearchBox value={q} onChange={setQ} placeholder="Search by name, MRN or hospital…" count={shown.length} total={rows.length} />
+      <SearchBox placeholder="Search by name, MRN or hospital…" info={info} />
       {rows.length === 0 ? (
-        <EmptyState icon="users" title={emptyTitle} description="Registered patients will appear here." action={emptyAction} />
-      ) : shown.length === 0 ? (
-        <EmptyState
-          icon="search"
-          title="No matches on this page"
-          description="Names are encrypted, so only the loaded records can be searched by name. You can look up any record by its exact MRN."
-          action={
-            <Link href={`/patients?mrn=${encodeURIComponent(q.trim())}`} className="btn-secondary">
-              <Icon name="search" className="h-4 w-4" /> Look up MRN “{q.trim()}”
-            </Link>
-          }
-        />
+        searching ? <NoMatches what="patients" /> : (
+          <EmptyState icon="users" title="No patients registered yet" description="Registered patients will appear here." action={emptyAction} />
+        )
       ) : (
         <div className="overflow-x-auto">
           <table className="table-modern">
@@ -120,7 +202,7 @@ export function PatientsTable({
               </tr>
             </thead>
             <tbody>
-              {shown.map((p) => (
+              {rows.map((p) => (
                 <tr key={p.id} className="group">
                   <td>
                     <Link href={`/patients/${p.id}`} className="flex items-center gap-3">
@@ -144,6 +226,7 @@ export function PatientsTable({
           </table>
         </div>
       )}
+      <Pager info={info} />
     </div>
   );
 }
@@ -161,23 +244,21 @@ export interface TestRow {
 
 export function TestsTable({
   rows,
+  info,
   emptyAction,
-  available,
 }: {
   rows: TestRow[];
+  info: PageInfo;
   emptyAction?: ReactNode;
-  available?: number;
 }) {
-  const [q, setQ] = useState("");
-  const shown = useMemo(() => rows.filter((t) => matches(q, t.patientName, t.patientMrn, t.testTypeName)), [rows, q]);
-
+  const searching = Boolean(useSearchParams().get("q"));
   return (
     <div className="table-shell animate-fade-in-up">
-      <SearchBox value={q} onChange={setQ} placeholder="Search patient, MRN or test type…" count={shown.length} total={rows.length} available={available} />
+      <SearchBox placeholder="Search patient, MRN or test type…" info={info} />
       {rows.length === 0 ? (
-        <EmptyState icon="flask" title="No breath tests found" description="Tests matching this filter will appear here." action={emptyAction} />
-      ) : shown.length === 0 ? (
-        <EmptyState icon="search" title="No matching tests" description="Try a different name, MRN or test type." />
+        searching ? <NoMatches what="tests" /> : (
+          <EmptyState icon="flask" title="No breath tests found" description="Tests matching this filter will appear here." action={emptyAction} />
+        )
       ) : (
         <div className="overflow-x-auto">
           <table className="table-modern">
@@ -191,7 +272,7 @@ export function TestsTable({
               </tr>
             </thead>
             <tbody>
-              {shown.map((t) => (
+              {rows.map((t) => (
                 <tr key={t.id} className="group">
                   <td>
                     <Link href={`/tests/${t.id}`} className="flex items-center gap-3">
@@ -223,6 +304,7 @@ export function TestsTable({
           </table>
         </div>
       )}
+      <Pager info={info} />
     </div>
   );
 }

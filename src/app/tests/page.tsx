@@ -1,7 +1,8 @@
 import Link from "next/link";
 import type { ReportStatus } from "@prisma/client";
 import { requirePermission } from "@/lib/session";
-import { countTestsByStatus, listTests, STATUS_LABEL } from "@/lib/tests";
+import { countTestsByStatus, listTestsPage, STATUS_LABEL } from "@/lib/tests";
+import { parsePage } from "@/lib/pagination";
 import { can } from "@/lib/rbac";
 import { AppShell } from "@/components/AppShell";
 import { TestsTable } from "@/components/ListTables";
@@ -18,16 +19,16 @@ const DOT: Record<ReportStatus, string> = {
 export default async function TestsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string }>;
+  searchParams: Promise<{ status?: string; q?: string; page?: string }>;
 }) {
   const user = await requirePermission("test:read");
-  const { status } = await searchParams;
+  const { status, q, page } = await searchParams;
   const statusFilter = STATUSES.includes(status as ReportStatus)
     ? (status as ReportStatus)
     : undefined;
 
-  const [tests, counts] = await Promise.all([
-    listTests(user, { status: statusFilter }),
+  const [result, counts] = await Promise.all([
+    listTestsPage(user, { status: statusFilter, q, page: parsePage(page) }),
     countTestsByStatus(user),
   ]);
   const total = counts.DRAFT + counts.IN_PROGRESS + counts.FINALIZED;
@@ -68,11 +69,11 @@ export default async function TestsPage({
       />
 
       <div className="mb-5 flex flex-wrap gap-2">
-        <Link href="/tests" className={chip(!statusFilter)}>
+        <Link href={q ? `/tests?q=${encodeURIComponent(q)}` : "/tests"} className={chip(!statusFilter)}>
           All <span className={countPill(!statusFilter)}>{total}</span>
         </Link>
         {STATUSES.map((s) => (
-          <Link key={s} href={`/tests?status=${s}`} className={chip(statusFilter === s)}>
+          <Link key={s} href={`/tests?status=${s}${q ? `&q=${encodeURIComponent(q)}` : ""}`} className={chip(statusFilter === s)}>
             <span className={`h-2 w-2 rounded-full ${statusFilter === s ? "bg-white" : DOT[s]}`} />
             {STATUS_LABEL[s]} <span className={countPill(statusFilter === s)}>{counts[s]}</span>
           </Link>
@@ -80,8 +81,8 @@ export default async function TestsPage({
       </div>
 
       <TestsTable
-        available={statusFilter ? counts[statusFilter] : total}
-        rows={tests.map((t) => ({
+        info={result}
+        rows={result.rows.map((t) => ({
           id: t.id,
           patientName: t.patientName,
           patientMrn: t.patientMrn,
