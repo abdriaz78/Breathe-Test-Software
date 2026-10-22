@@ -124,7 +124,7 @@ async function main() {
     mrn: "DEMO-1003", name: "Sara Ahmed", dob: "1998-02-20", gender: "FEMALE", weightKg: 55, ref: "Dr. Layla Haddad",
   });
   await makeTest({
-    patientId: p3, typeId: lactulose.id, substrate: "Lactulose", dose: "10 g lactulose in 250 mL water",
+    patientId: p3, typeId: lactulose.id, substrate: "Lactulose", dose: "15 ml lactulose in 250 mL water",
     preSymptoms: "gas, irregular bowel habit", label: "Sara - SIBO Lactulose (IN PROGRESS, awaiting physician)",
     samples: rows([[0, 5, 3, 5.0], [20, 7, 4, 5.0], [40, 9, 5, 4.9], [60, 13, 6, 4.9], [80, 16, 8, 4.8], [100, 18, 9, 4.8]]),
   });

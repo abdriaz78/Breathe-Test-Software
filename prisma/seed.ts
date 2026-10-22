@@ -61,7 +61,7 @@ async function main() {
       key: "SIBO_LACTULOSE",
       name: "SIBO — Lactulose",
       defaultSubstrate: "Lactulose",
-      defaultDose: "10 g lactulose in 250 mL water",
+      defaultDose: "15 ml lactulose in 250 mL water",
       interpretationRules: { h2RiseFromBaselinePpm: 20, ch4AbsolutePpm: 10 },
     },
     {
