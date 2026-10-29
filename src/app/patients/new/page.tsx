@@ -17,7 +17,7 @@ export default async function NewPatientPage() {
     prisma.user.findMany({
       where: { role: "PHYSICIAN", isActive: true, ...hospitalScope(user) },
       orderBy: { name: "asc" },
-      select: { id: true, name: true, title: true },
+      select: { id: true, name: true, title: true, hospitalId: true },
     }),
   ]);
 

@@ -17,6 +17,7 @@ interface PhysicianOption {
   id: string;
   name: string;
   title: string | null;
+  hospitalId: string | null;
 }
 
 export interface PatientFormValues {
@@ -56,13 +57,20 @@ export function PatientForm({
 
   const err = (field: string) => state.fieldErrors?.[field];
 
+  // Physicians are hospital-scoped accounts — only offer the ones that belong
+  // to whichever hospital is currently on the form, not every physician the
+  // caller's role happens to be able to see.
+  const initialHospitalId = lockedHospitalId ?? patient?.hospitalId ?? "";
+  const [selectedHospitalId, setSelectedHospitalId] = useState(initialHospitalId);
+  const visiblePhysicians = physicians.filter((p) => p.hospitalId === selectedHospitalId);
+
   // "Other" keeps this usable for referring physicians who aren't registered
   // system users (the common case — most referrals come from outside doctors).
   const initialPhysician = patient?.referringPhysician ?? "";
   const physicianListed =
-    !initialPhysician || physicians.some((p) => physicianLabel(p) === initialPhysician);
+    !initialPhysician || visiblePhysicians.some((p) => physicianLabel(p) === initialPhysician);
   const [physicianMode, setPhysicianMode] = useState<"select" | "other">(
-    physicians.length && physicianListed ? "select" : "other"
+    visiblePhysicians.length && physicianListed ? "select" : "other"
   );
 
   return (
@@ -141,6 +149,10 @@ export function PatientForm({
               name="hospitalId"
               className="input"
               defaultValue={patient?.hospitalId ?? ""}
+              onChange={(e) => {
+                setSelectedHospitalId(e.target.value);
+                setPhysicianMode("select");
+              }}
             >
               <option value="" disabled>
                 Select…
@@ -163,16 +175,17 @@ export function PatientForm({
           </label>
           {physicianMode === "select" ? (
             <select
+              key={selectedHospitalId}
               id="referringPhysician"
               name="referringPhysician"
               className="input"
-              defaultValue={initialPhysician}
+              defaultValue={selectedHospitalId === initialHospitalId ? initialPhysician : ""}
               onChange={(e) => {
                 if (e.target.value === OTHER_PHYSICIAN) setPhysicianMode("other");
               }}
             >
               <option value="">None</option>
-              {physicians.map((p) => {
+              {visiblePhysicians.map((p) => {
                 const label = physicianLabel(p);
                 return (
                   <option key={p.id} value={label}>
@@ -191,9 +204,9 @@ export function PatientForm({
                 className="input"
                 placeholder="Referring physician name"
                 defaultValue={physicianListed ? "" : initialPhysician}
-                autoFocus={physicians.length > 0}
+                autoFocus={visiblePhysicians.length > 0}
               />
-              {physicians.length > 0 && (
+              {visiblePhysicians.length > 0 && (
                 <button
                   type="button"
                   onClick={() => setPhysicianMode("select")}

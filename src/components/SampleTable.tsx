@@ -14,7 +14,7 @@ import { CH4_TRIGGER_PPM } from "@/lib/chart-geometry";
 import { summarizeCh4Result } from "@/lib/interpretation";
 
 // Number of blank rows shown by default when entering a fresh test.
-const DEFAULT_ROWS = 6;
+const DEFAULT_ROWS = 7;
 
 export interface EditableRow {
   sampleNumber: number;

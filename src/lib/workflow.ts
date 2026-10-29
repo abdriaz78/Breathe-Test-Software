@@ -128,6 +128,14 @@ export async function completeSampleCollection(
 /** Audit trail for a single report, newest first. */
 export async function getTestAuditTrail(actor: CurrentUser, testId: string) {
   authorize(actor.role, "test:read");
+
+  const test = await prisma.breathTest.findUnique({
+    where: { id: testId },
+    select: { patient: { select: { hospitalId: true } } },
+  });
+  if (!test) throw new Error("Test not found.");
+  if (isOutsideScope(actor, test.patient.hospitalId)) throw new Error("Test not found.");
+
   return prisma.auditLog.findMany({
     where: { breathTestId: testId },
     orderBy: { createdAt: "desc" },

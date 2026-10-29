@@ -31,7 +31,7 @@ export default async function EditPatientPage({
     prisma.user.findMany({
       where: { role: "PHYSICIAN", isActive: true, ...hospitalScope(user) },
       orderBy: { name: "asc" },
-      select: { id: true, name: true, title: true },
+      select: { id: true, name: true, title: true, hospitalId: true },
     }),
     prisma.breathTest.count({ where: { patientId: id, status: "FINALIZED" } }),
   ]);

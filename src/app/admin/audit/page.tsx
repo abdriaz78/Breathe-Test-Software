@@ -1,6 +1,8 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import type { AuditAction } from "@prisma/client";
 import { requirePermission } from "@/lib/session";
+import { isHospitalScoped } from "@/lib/rbac";
 import { prisma } from "@/lib/prisma";
 import { AppShell } from "@/components/AppShell";
 import { PageHeader } from "@/components/ui/primitives";
@@ -22,6 +24,12 @@ export default async function AuditPage({
   searchParams: Promise<{ action?: string; entity?: string }>;
 }) {
   const user = await requirePermission("audit:read");
+  // This org-wide log spans every hospital and isn't filterable by hospital
+  // (AuditLog rows aren't all hospital-attributable — e.g. User/Hospital/TestType
+  // entries). Physician accounts hold audit:read only for the per-test trail
+  // embedded in the test detail page (already scoped there); they must not
+  // reach this cross-hospital view.
+  if (isHospitalScoped(user.role)) redirect("/?error=forbidden");
   const { action, entity } = await searchParams;
   const actionFilter = ACTIONS.includes(action as AuditAction) ? (action as AuditAction) : undefined;
 

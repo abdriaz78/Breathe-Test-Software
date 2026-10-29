@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { requirePermission, hospitalScope, isOutsideScope } from "@/lib/session";
+import { requirePermission, isOutsideScope } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { decrypt } from "@/lib/crypto";
 import { ROLE_LABELS } from "@/lib/rbac";
@@ -38,7 +38,10 @@ export default async function NewTestPage({
       where: {
         isActive: true,
         role: { in: ["NURSE", "PHYSICIAN", "ADMIN"] },
-        ...hospitalScope(user),
+        // Scoped to the patient's hospital, not the actor's — an Admin
+        // creating a test for Hospital A shouldn't see Hospital B's staff
+        // in the technician picker.
+        OR: [{ hospitalId: patient.hospitalId }, { hospitalId: null }],
       },
       orderBy: { name: "asc" },
       select: { id: true, name: true, role: true, title: true },
