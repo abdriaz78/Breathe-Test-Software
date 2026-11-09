@@ -111,7 +111,12 @@ export async function resetUserPassword(
   if (!target) throw new Error("User not found.");
 
   const passwordHash = await bcrypt.hash(data.password, 10);
-  await prisma.user.update({ where: { id: userId }, data: { passwordHash } });
+  // Bumping sessionVersion signs the user out everywhere; the reset also
+  // clears any brute-force lock.
+  await prisma.user.update({
+    where: { id: userId },
+    data: { passwordHash, sessionVersion: { increment: 1 }, failedLoginCount: 0, lockedUntil: null },
+  });
 
   await recordAudit({
     action: "UPDATE", entity: "User", entityId: userId,

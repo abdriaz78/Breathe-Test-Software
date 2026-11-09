@@ -22,6 +22,8 @@ export type Permission =
   // Reporting / export
   | "report:export"
   | "report:share"
+  // Patient portal: issue / reset / disable a patient's report-portal login
+  | "portal:manage"
   // Administration
   | "user:manage"
   | "testtype:manage"
@@ -32,18 +34,18 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
   ADMIN: [
     "patient:read", "patient:create", "patient:update",
     "test:read", "test:create", "test:update", "test:timer", "timer:delete",
-    "report:export", "report:share",
+    "report:export", "report:share", "portal:manage",
     "user:manage", "testtype:manage", "hospital:manage", "audit:read",
   ],
   NURSE: [
     "patient:read", "patient:create", "patient:update",
     "test:read", "test:create", "test:update", "test:timer",
-    "report:export", "report:share",
+    "report:export", "report:share", "portal:manage",
   ],
   PHYSICIAN: [
     "patient:read",
     "test:read", "test:update", "test:timer", "test:diagnose",
-    "report:export", "report:share",
+    "report:export", "report:share", "portal:manage",
     "audit:read",
   ],
   SPECTER_SUPPORT: [
@@ -71,7 +73,10 @@ export function assertCan(role: Role | undefined | null, permission: Permission)
  * that hospital's patients/tests/reports/staff. ADMIN and SPECTER_SUPPORT
  * are unscoped (cross-hospital) by design. */
 export function isHospitalScoped(role: Role | undefined | null): boolean {
-  return role === "NURSE" || role === "PHYSICIAN";
+  // Fail closed: only the two explicitly cross-hospital roles are unscoped.
+  // Any other value (a future role, a missing role on a malformed session)
+  // is treated as scoped, so it can never fall through to "see everything".
+  return !(role === "ADMIN" || role === "SPECTER_SUPPORT");
 }
 
 export const ROLE_LABELS: Record<Role, string> = {

@@ -5,7 +5,7 @@ import { can } from "@/lib/rbac";
 import { listTestsForExport } from "@/lib/tests";
 import { toCsv, csvResponse } from "@/lib/csv";
 import { recordAudit } from "@/lib/audit";
-import { requestContext } from "@/lib/session";
+import { requestContext, staffFromSession } from "@/lib/session";
 
 export const runtime = "nodejs";
 
@@ -16,9 +16,9 @@ function isoDate(d: Date | null): string {
 }
 
 export async function GET(req: Request) {
-  const session = await auth();
-  if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (!can(session.user.role, "report:export")) {
+  const actor = staffFromSession(await auth());
+  if (!actor) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!can(actor.role, "report:export")) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -28,13 +28,6 @@ export async function GET(req: Request) {
     ? (statusParam as ReportStatus)
     : undefined;
 
-  const actor = {
-    id: session.user.id,
-    name: session.user.name ?? "",
-    email: session.user.email ?? "",
-    role: session.user.role,
-    hospitalId: session.user.hospitalId,
-  };
   const rows = await listTestsForExport(actor, { status });
 
   const headers = [
@@ -51,7 +44,7 @@ export async function GET(req: Request) {
   const ctx = await requestContext();
   await recordAudit({
     action: "EXPORT", entity: "BreathTest",
-    actorId: session.user.id, actorRole: session.user.role,
+    actorId: actor.id, actorRole: actor.role,
     summary: `Exported tests summary CSV (${rows.length} rows${status ? `, ${status}` : ""})`,
     metadata: { format: "csv", scope: "tests-summary", rows: rows.length, status }, ...ctx,
   });

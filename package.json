@@ -14,7 +14,9 @@
     "db:migrate": "prisma migrate dev",
     "db:push": "prisma db push",
     "db:seed": "tsx prisma/seed.ts",
-    "db:studio": "prisma studio"
+    "db:studio": "prisma studio",
+    "test": "tsx scripts/integration-test.ts && tsx scripts/admin-features-test.ts && tsx scripts/pagination-test.ts && tsx scripts/portal-security-test.ts",
+    "test:http": "tsx scripts/http-security-test.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

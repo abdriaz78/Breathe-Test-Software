@@ -39,6 +39,11 @@ model User {
   licenseNo    String?
   isActive     Boolean   @default(true)
   lastLoginAt  DateTime?
+  // Brute-force protection: consecutive failed sign-ins and a temporary lock.
+  failedLoginCount Int       @default(0)
+  lockedUntil      DateTime?
+  // Bumped on password reset so every outstanding session is revoked.
+  sessionVersion   Int       @default(0)
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
@@ -120,8 +125,33 @@ model Patient {
   createdAt  DateTime     @default(now())
   updatedAt  DateTime     @updatedAt
   tests      BreathTest[]
+  portalAccount PatientAccount?
 
   @@index([hospitalId])
+}
+
+// Patient-portal login. Entirely separate from staff `User` accounts so a
+// patient session can never satisfy a staff permission check. A patient signs
+// in with their MRN + a password issued by hospital staff, and can only ever
+// see their OWN finalized reports. Staff issue/reset/disable access from the
+// patient's record (permission portal:manage, hospital-scoped).
+model PatientAccount {
+  id                 String    @id @default(cuid())
+  patient            Patient   @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  patientId          String    @unique
+  passwordHash       String
+  // True after staff issue/reset a temporary password: the patient must pick
+  // their own before they can see any report.
+  mustChangePassword Boolean   @default(true)
+  isActive           Boolean   @default(true)
+  failedLoginCount   Int       @default(0)
+  lockedUntil        DateTime?
+  lastLoginAt        DateTime?
+  // Bumped on every reset/disable so outstanding sessions are revoked.
+  sessionVersion     Int       @default(0)
+  createdById        String?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
 }
 
 // ------------------------------ Test types -----------------------------------

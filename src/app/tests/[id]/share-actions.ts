@@ -2,10 +2,10 @@
 
 import { z } from "zod";
 import { auth } from "@/lib/auth";
-import { can, isHospitalScoped } from "@/lib/rbac";
+import { can } from "@/lib/rbac";
 import { prisma } from "@/lib/prisma";
 import { recordAudit } from "@/lib/audit";
-import { requestContext } from "@/lib/session";
+import { isOutsideScope, requestContext, staffFromSession } from "@/lib/session";
 
 const shareSchema = z.object({
   testId: z.string().min(1),
@@ -25,9 +25,9 @@ export async function recordShareAction(
   _prev: ShareState,
   formData: FormData
 ): Promise<ShareState> {
-  const session = await auth();
-  if (!session?.user) return { error: "Not signed in." };
-  if (!can(session.user.role, "report:share")) return { error: "You do not have permission to share." };
+  const user = staffFromSession(await auth());
+  if (!user) return { error: "Not signed in." };
+  if (!can(user.role, "report:share")) return { error: "You do not have permission to share." };
 
   const parsed = shareSchema.safeParse({
     testId: String(formData.get("testId") ?? ""),
@@ -44,7 +44,7 @@ export async function recordShareAction(
     select: { patient: { select: { mrn: true, hospitalId: true } } },
   });
   if (!test) return { error: "Test not found." };
-  if (isHospitalScoped(session.user.role) && test.patient.hospitalId !== session.user.hospitalId) {
+  if (isOutsideScope(user, test.patient.hospitalId)) {
     return { error: "Test not found." };
   }
 
@@ -54,8 +54,8 @@ export async function recordShareAction(
     entity: "BreathTest",
     entityId: testId,
     breathTestId: testId,
-    actorId: session.user.id,
-    actorRole: session.user.role,
+    actorId: user.id,
+    actorRole: user.role,
     summary: `Shared report via ${method}${recipient ? ` to ${recipient}` : ""} (MRN ${test.patient.mrn})`,
     metadata: { scope: "share", method, recipient: recipient || null },
     ...ctx,

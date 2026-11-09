@@ -7,6 +7,8 @@ import { listTests, STATUS_LABEL, STATUS_STYLE } from "@/lib/tests";
 import { AppShell } from "@/components/AppShell";
 import { Icon } from "@/components/ui/Icon";
 import { Avatar } from "@/components/ui/primitives";
+import { PortalAccessCard } from "@/components/PortalAccessCard";
+import { getPortalAccess } from "@/lib/portal";
 
 const GENDER_LABEL: Record<string, string> = {
   MALE: "Male",
@@ -36,6 +38,7 @@ export default async function PatientDetailPage({
 
   const showReports = can(user.role, "test:read");
   const reports = showReports ? await listTests(user, { patientId: id }) : [];
+  const portal = can(user.role, "portal:manage") ? await getPortalAccess(user, id) : null;
 
   const age = ageOf(patient.dob);
 
@@ -151,6 +154,18 @@ export default async function PatientDetailPage({
             </table>
           </div>
         </section>
+      )}
+
+      {portal && (
+        <PortalAccessCard
+          patientId={patient.id}
+          status={{
+            enabled: portal.enabled,
+            mustChangePassword: portal.mustChangePassword,
+            lastLoginAt: portal.lastLoginAt?.toISOString() ?? null,
+            lockedUntil: portal.lockedUntil?.toISOString() ?? null,
+          }}
+        />
       )}
 
       <p className="mt-4 flex max-w-4xl items-center gap-1.5 text-xs text-slate-400">

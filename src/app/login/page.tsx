@@ -6,6 +6,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Icon, type IconName } from "@/components/ui/Icon";
 import { LogoLockup } from "@/components/ui/Logo";
 import { BreathWaves } from "@/components/ui/BreathWaves";
+import { InstallAppButton } from "@/components/pwa/InstallAppButton";
+import { safeCallbackUrl } from "@/lib/safe-redirect";
 
 export default function LoginPage() {
   return (
@@ -15,12 +17,11 @@ export default function LoginPage() {
   );
 }
 
-// Abd Report
-
 function LoginForm() {
   const router = useRouter();
   const params = useSearchParams();
-  const callbackUrl = params.get("callbackUrl") || "/";
+  // Only ever follow same-origin relative paths (prevents open redirects).
+  const callbackUrl = safeCallbackUrl(params.get("callbackUrl"));
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -39,7 +40,7 @@ function LoginForm() {
     });
     setLoading(false);
     if (res?.error) {
-      setError("Invalid email or password.");
+      setError(res.error.startsWith("Too many failed attempts") ? res.error : "Invalid email or password.");
       return;
     }
     router.push(callbackUrl);
@@ -170,6 +171,21 @@ function LoginForm() {
               )}
             </button>
           </form>
+
+          <div className="mt-6 space-y-3">
+            <div className="flex items-center gap-3 text-xs text-slate-400">
+              <span className="h-px flex-1 bg-slate-200" /> or <span className="h-px flex-1 bg-slate-200" />
+            </div>
+            <a
+              href="/portal/login"
+              className="flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:border-brand-300 hover:text-brand-800"
+            >
+              <Icon name="fileText" className="h-4 w-4" />
+              Patient? View your reports
+            </a>
+            <InstallAppButton />
+          </div>
+
           <p className="mt-8 flex items-center justify-center gap-1.5 text-center text-xs text-slate-400">
             <Icon name="shield" className="h-3.5 w-3.5" />
             Authorized hospital personnel only. Activity is audited.
