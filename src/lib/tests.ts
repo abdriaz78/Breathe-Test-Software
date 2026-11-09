@@ -64,6 +64,32 @@ export async function createTest(
     throw new Error("Selected patient does not exist.");
   }
 
+  // The form only offers valid choices, but a crafted request could submit any
+  // id. Every referenced record must be usable for THIS patient's hospital, so
+  // a test can never be linked to another hospital's department or staff.
+  const [testType, department, technician] = await Promise.all([
+    prisma.testType.findUnique({ where: { id: data.testTypeId }, select: { isActive: true } }),
+    data.departmentId
+      ? prisma.department.findUnique({ where: { id: data.departmentId }, select: { hospitalId: true, isActive: true } })
+      : Promise.resolve(null),
+    data.technicianId
+      ? prisma.user.findUnique({ where: { id: data.technicianId }, select: { hospitalId: true, isActive: true, role: true } })
+      : Promise.resolve(null),
+  ]);
+  if (!testType || !testType.isActive) throw new Error("Selected test type is not available.");
+  if (data.departmentId && (!department || !department.isActive || department.hospitalId !== patient.hospitalId)) {
+    throw new Error("Selected department does not belong to the patient's hospital.");
+  }
+  if (
+    data.technicianId &&
+    (!technician ||
+      !technician.isActive ||
+      !["NURSE", "PHYSICIAN", "ADMIN"].includes(technician.role) ||
+      (technician.hospitalId !== null && technician.hospitalId !== patient.hospitalId))
+  ) {
+    throw new Error("Selected technician is not available for the patient's hospital.");
+  }
+
   const test = await prisma.breathTest.create({
     data: {
       patientId: data.patientId,

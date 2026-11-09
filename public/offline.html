@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0d9488">
+<title>Offline — QuinTron Breath Test</title>
+<link rel="icon" href="/icons/icon.svg" type="image/svg+xml">
+<style>
+  :root { color-scheme: light; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center;
+    padding: 24px 16px; background: #f4f7fb; color: #0f172a;
+    font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  .card {
+    width: 100%; max-width: 420px; background: #fff; border: 1px solid #e3e8ef; border-radius: 18px;
+    padding: 32px 28px; text-align: center; box-shadow: 0 1px 2px rgba(16,24,40,.04), 0 4px 16px -4px rgba(16,24,40,.08);
+  }
+  img { width: 64px; height: 64px; border-radius: 16px; }
+  h1 { margin: 20px 0 8px; font-size: 22px; letter-spacing: -.01em; }
+  p { margin: 0; color: #64748b; font-size: 15px; line-height: 1.55; }
+  button {
+    margin-top: 24px; width: 100%; border: 0; border-radius: 12px; padding: 12px 16px; cursor: pointer;
+    background: #0d9488; color: #fff; font: inherit; font-weight: 600; font-size: 15px;
+  }
+  button:hover { background: #0f766e; }
+  .note { margin-top: 16px; font-size: 12px; color: #94a3b8; }
+</style>
+</head>
+<body>
+  <main class="card">
+    <img src="/icons/icon-192.png" alt="">
+    <h1>You're offline</h1>
+    <p>QuinTron needs a connection to load patient records and reports. Check your Wi-Fi or mobile data, then try again.</p>
+    <button type="button" onclick="location.reload()">Try again</button>
+    <p class="note">For privacy, patient data is never stored on this device.</p>
+  </main>
+  <script>
+    window.addEventListener("online", function () { location.reload(); });
+  </script>
+</body>
+</html>

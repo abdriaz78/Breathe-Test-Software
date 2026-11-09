@@ -67,6 +67,51 @@ src/
 | **Nurse / Lab Tech**| Register patients, create tests, enter samples, export        |
 | **Physician**       | Review, author diagnosis, sign & finalize, reopen, audit      |
 | **Specter Support** | Read-only clinical + config (test types, hospitals), audit    |
+| **Patient (portal)**| Own **finalized** reports only — view/download PDF            |
+
+Nurse and Physician accounts are **hospital-scoped**: every list, search,
+export, PDF and page is restricted to their own hospital, and anything outside
+it answers "not found". Scoping fails closed — any role that is not explicitly
+cross-hospital (Admin, Specter Support) is treated as scoped.
+
+## Patient portal
+
+Patients sign in at **`/portal/login`** with their **MRN + a password issued by
+hospital staff** and can only see their own finalized reports.
+
+1. On the patient's record, staff (Admin / Nurse / Physician of that hospital)
+   click **Enable portal access**. A one-time temporary password is shown once.
+2. The patient signs in and must choose their own password before seeing anything.
+3. **Reset password** issues a new temporary password, unlocks the account and
+   signs the patient out everywhere; **Disable** revokes access immediately.
+
+Patient sessions are a separate session *kind*: they can never satisfy a staff
+permission check, middleware fences them into `/portal` and `/api/portal`, and
+the patient name is never placed in the session token.
+
+## Installable app (PWA)
+
+The app is a Progressive Web App: web app manifest (`src/app/manifest.ts`),
+standard + maskable icons (`public/icons/`), a service worker (`public/sw.js`)
+and an offline page (`public/offline.html`). Both sign-in screens show an
+**Install app** button — it triggers the browser's native install prompt
+(Chrome / Edge / Android) or shows step-by-step instructions (iPhone/iPad
+Safari, macOS Safari, Firefox).
+
+**Privacy:** the service worker never caches pages, API responses, PDFs or CSVs
+— only content-hashed build assets, icons and the offline page — so no patient
+data is stored on a shared workstation or phone. The service worker registers
+in production builds only (`npm run build && npm start`); installing requires
+HTTPS (or `localhost`).
+
+## Sign-in security
+
+- 5 consecutive failed sign-ins lock the account for 15 minutes (staff and
+  patients). An admin password reset / staff portal reset unlocks it.
+- Every request re-validates the session against the database: deactivating a
+  user, resetting a password or disabling portal access signs them out at once;
+  role and hospital changes apply without re-login.
+- `callbackUrl` after sign-in only accepts same-origin relative paths.
 
 See [`src/lib/rbac.ts`](src/lib/rbac.ts) for the exact permission matrix.
 
@@ -90,6 +135,20 @@ npm run db:seed
 npm run dev            # http://localhost:3000
 ```
 
+> **Upgrading an existing database:** this release adds the `PatientAccount`
+> table and lockout/session columns on `User`. Run `npm run db:push` against
+> each environment's database before deploying the new code.
+
+### Tests
+
+```bash
+npm test                                     # data-layer suites (needs a seeded DB)
+BASE_URL=http://localhost:3000 npm run test:http   # HTTP security + PWA checks against a running server
+```
+
+The suites create their own throwaway hospitals/patients, so point them at a
+dev/test database, never production.
+
 ### Demo logins (after seeding)
 
 Password for all: `Passw0rd!` (override with `SEED_PASSWORD`).
@@ -112,7 +171,8 @@ Password for all: `Passw0rd!` (override with `SEED_PASSWORD`).
 7. ✅ Report status workflow + reopen-with-reason audit trail
 8. ✅ Admin: users, test types, hospitals + global audit log
 9. ✅ Export: PDF download, email/share, Excel/CSV
-10. ⬜ Hardening: rate limiting, stricter CSP, UAE-region deployment
+10. ✅ PWA (installable, offline page, no PHI cached) + patient portal
+11. 🟨 Hardening: ✅ account lockout, session revocation, CSP/HSTS — ⬜ IP rate limiting, CSP nonces, MFA, UAE-region deployment
 
 ## Security & compliance notes
 

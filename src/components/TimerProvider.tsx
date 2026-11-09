@@ -9,6 +9,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { usePathname } from "next/navigation";
 import type { ActiveTimer } from "@/lib/timers";
 
 // -----------------------------------------------------------------------------
@@ -60,8 +61,13 @@ export function TimerProvider({ children }: { children: ReactNode }) {
   // Local clock, re-rendered once a second to drive the countdown text.
   const [now, setNow] = useState(() => Date.now());
   const skewRef = useRef(0);
+  // Sample reminders are a staff feature: don't poll on the sign-in screens or
+  // in the patient portal (the API would only answer 401/403 there anyway).
+  const pathname = usePathname() ?? "";
+  const enabled = !(pathname === "/login" || pathname === "/portal" || pathname.startsWith("/portal/"));
 
   const refresh = useCallback(async () => {
+    if (!enabled) return;
     try {
       const res = await fetch("/api/timers", { cache: "no-store" });
       if (!res.ok) return; // signed out or forbidden — leave the last known list
@@ -73,9 +79,13 @@ export function TimerProvider({ children }: { children: ReactNode }) {
     } finally {
       setLoaded(true);
     }
-  }, []);
+  }, [enabled]);
 
   useEffect(() => {
+    if (!enabled) {
+      setTimers([]);
+      return;
+    }
     void refresh();
     const poll = setInterval(() => void refresh(), POLL_MS);
     const tick = setInterval(() => setNow(Date.now()), 1000);
@@ -89,7 +99,7 @@ export function TimerProvider({ children }: { children: ReactNode }) {
       clearInterval(tick);
       document.removeEventListener("visibilitychange", onVisible);
     };
-  }, [refresh]);
+  }, [refresh, enabled]);
 
   const remainingMs = useCallback(
     (timer: ActiveTimer) =>

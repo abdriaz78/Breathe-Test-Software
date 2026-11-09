@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { can, isHospitalScoped } from "@/lib/rbac";
+import { can } from "@/lib/rbac";
 import { loadReportData } from "@/lib/report";
 import { sampleTotal } from "@/lib/sample-math";
 import { toCsv, csvResponse } from "@/lib/csv";
 import { recordAudit } from "@/lib/audit";
-import { requestContext } from "@/lib/session";
+import { isOutsideScope, requestContext, staffFromSession } from "@/lib/session";
 
 export const runtime = "nodejs";
 
@@ -17,16 +17,16 @@ export async function GET(
   _req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
-  if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (!can(session.user.role, "report:export")) {
+  const user = staffFromSession(await auth());
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!can(user.role, "report:export")) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   const { id } = await params;
   const data = await loadReportData(id);
   if (!data) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  if (isHospitalScoped(session.user.role) && data.hospitalId !== session.user.hospitalId) {
+  if (isOutsideScope(user, data.hospitalId)) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
@@ -46,7 +46,7 @@ export async function GET(
   const ctx = await requestContext();
   await recordAudit({
     action: "EXPORT", entity: "BreathTest", entityId: id, breathTestId: id,
-    actorId: session.user.id, actorRole: session.user.role,
+    actorId: user.id, actorRole: user.role,
     summary: `Exported samples CSV (patient MRN ${data.patient.mrn})`,
     metadata: { format: "csv", scope: "samples", rows: rows.length }, ...ctx,
   });

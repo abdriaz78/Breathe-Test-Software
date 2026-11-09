@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
 import { renderToBuffer } from "@react-pdf/renderer";
 import { auth } from "@/lib/auth";
-import { can, isHospitalScoped } from "@/lib/rbac";
+import { can } from "@/lib/rbac";
 import { loadReportData } from "@/lib/report";
 import { ReportDocument } from "@/lib/pdf/ReportDocument";
 import { recordAudit } from "@/lib/audit";
-import { requestContext } from "@/lib/session";
+import { isOutsideScope, requestContext, staffFromSession } from "@/lib/session";
 
 // PDF generation runs in the Node runtime (react-pdf is not edge-compatible).
 export const runtime = "nodejs";
@@ -14,11 +14,11 @@ export async function GET(
   _req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
-  if (!session?.user) {
+  const user = staffFromSession(await auth());
+  if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  if (!can(session.user.role, "report:export")) {
+  if (!can(user.role, "report:export")) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -27,7 +27,7 @@ export async function GET(
   if (!data) {
     return NextResponse.json({ error: "Report not found" }, { status: 404 });
   }
-  if (isHospitalScoped(session.user.role) && data.hospitalId !== session.user.hospitalId) {
+  if (isOutsideScope(user, data.hospitalId)) {
     return NextResponse.json({ error: "Report not found" }, { status: 404 });
   }
 
@@ -39,8 +39,8 @@ export async function GET(
     entity: "BreathTest",
     entityId: id,
     breathTestId: id,
-    actorId: session.user.id,
-    actorRole: session.user.role,
+    actorId: user.id,
+    actorRole: user.role,
     summary: `Exported PDF report (patient MRN ${data.patient.mrn}, status ${data.status})`,
     metadata: { format: "pdf", status: data.status },
     ...ctx,

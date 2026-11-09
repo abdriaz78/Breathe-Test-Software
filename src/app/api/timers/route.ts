@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { listActiveTimers } from "@/lib/timers";
+import { staffFromSession } from "@/lib/session";
 
 // Polled by the header timer widget (see src/components/TimerProvider.tsx).
 // `serverNow` lets the client correct for clock skew between the workstation
@@ -11,18 +12,12 @@ import { listActiveTimers } from "@/lib/timers";
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  const session = await auth();
-  if (!session?.user) {
+  const actor = staffFromSession(await auth());
+  if (!actor) {
     return NextResponse.json({ error: "Unauthenticated" }, { status: 401 });
   }
 
-  const timers = await listActiveTimers({
-    id: session.user.id,
-    name: session.user.name ?? "",
-    email: session.user.email ?? "",
-    role: session.user.role,
-    hospitalId: session.user.hospitalId,
-  });
+  const timers = await listActiveTimers(actor);
 
   return NextResponse.json(
     { timers, serverNow: Date.now() },
